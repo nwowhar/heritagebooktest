@@ -789,6 +789,7 @@ body {
 .nline { border-bottom: 0.5px solid var(--rule); height: 7.5mm; }
 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -797,8 +798,30 @@ body {
   <!-- ══ HEADER ══ -->
   <header class="app-header">
     <div class="header-brand">
-      <div class="brand-name">Heritage <em>Books</em></div>
-      <div class="brand-sub">Print-on-Demand Configurator</div>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 36" height="28" aria-label="Heritage Books">
+        <!-- Book icon -->
+        <rect x="0" y="4" width="18" height="24" rx="1.5" fill="none" stroke="#b8913a" stroke-width="1.5"/>
+        <line x1="5" y1="4" x2="5" y2="28" stroke="#b8913a" stroke-width="1.5"/>
+        <line x1="5" y1="10" x2="18" y2="10" stroke="#b8913a" stroke-width="0.8" opacity="0.5"/>
+        <line x1="5" y1="14" x2="18" y2="14" stroke="#b8913a" stroke-width="0.8" opacity="0.5"/>
+        <line x1="5" y1="18" x2="16" y2="18" stroke="#b8913a" stroke-width="0.8" opacity="0.5"/>
+        <!-- HERITAGE -->
+        <text x="26" y="20"
+          font-family="'Barlow Condensed', sans-serif"
+          font-weight="800"
+          font-size="17"
+          letter-spacing="3"
+          text-anchor="start"
+          fill="#e8e0d0">HERITAGE</text>
+        <!-- BOOKS in gold -->
+        <text x="26" y="30"
+          font-family="'Barlow Condensed', sans-serif"
+          font-weight="400"
+          font-size="9"
+          letter-spacing="5"
+          text-anchor="start"
+          fill="#b8913a">BOOKS</text>
+      </svg>
     </div>
     <div class="header-steps">
       <div class="step active" id="step1">01 · Configure</div>
@@ -1226,6 +1249,7 @@ body {
           <div class="pnav-info" id="pnav-info">— / —</div>
           <button class="pnav-btn" onclick="nextPage()">›</button>
         </div>
+        <button id="print-btn" onclick="downloadPDF()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:1px;background:none;border:1px solid #444;color:#aaa;padding:4px 10px;cursor:pointer;border-radius:2px;" title="Save as PDF">↓ PDF</button>
       </div>
 
       <div class="page-tabs" id="page-tabs"></div>
@@ -1329,6 +1353,7 @@ body {
 /* Internal print mode — activated only by printBook() with .print-mode class on body */
 body.print-mode * { display: revert !important; }
 @media print {
+  @page { size: A5 portrait; margin: 0; }
   body.print-mode::after { display: none !important; }
   body.print-mode { background: white; }
   body.print-mode .app-header,
@@ -1336,12 +1361,24 @@ body.print-mode * { display: revert !important; }
   body.print-mode .preview-topbar,
   body.print-mode .page-tabs,
   body.print-mode .pnav-info,
+  body.print-mode .pdf-modal,
   body.print-mode .pnav-btn { display: none !important; }
   body.print-mode .preview-pane { max-height: none; overflow: visible; padding: 0; background: white; }
   body.print-mode .a5-wrap { display: flex !important; }
-  body.print-mode .a5 { display: block !important; box-shadow: none; margin: 0; page-break-after: always; break-after: page; }
-  body.print-mode .a5::after { display: none !important; } /* no watermark on internal print */
+  body.print-mode .a5 {
+    display: block !important;
+    box-shadow: none;
+    margin: 0;
+    zoom: 1 !important;
+    width: 148mm !important;
+    height: 210mm !important;
+    page-break-after: always;
+    break-after: page;
+    overflow: hidden;
+  }
+  body.print-mode .a5::after { display: none !important; }
   body.print-mode .placeholder { display: none; }
+  body.print-mode #pdf-modal { display: none !important; }
 }
 </style>
 
@@ -5642,19 +5679,71 @@ function prevPage() { showPage(state.currentPage - 1); }
 function nextPage() { showPage(state.currentPage + 1); }
 
 // Print
-function printBook() {
-  // Internal use only — adds print-mode class which bypasses the print block
-  document.body.classList.add('print-mode');
-  document.querySelectorAll('.a5').forEach(p => p.classList.add('show'));
-  document.getElementById('step3').className = 'step active';
-  window.print();
-  setTimeout(() => {
-    document.body.classList.remove('print-mode');
+async function downloadPDF() {
+  const btn = document.getElementById('print-btn');
+  const origText = btn.innerHTML;
+  btn.innerHTML = '↓ Building…';
+  btn.disabled = true;
+
+  try {
+    // Make all pages visible and remove zoom for accurate capture
+    document.querySelectorAll('.a5').forEach(p => {
+      p.classList.add('show');
+      p.style.zoom = '';
+    });
+
+    // Redraw cover canvas at full res before capture
+    drawLiveCoverCanvas();
+    await new Promise(r => setTimeout(r, 150));
+
+    // Clone all pages into a clean off-screen container
+    const container = document.createElement('div');
+    container.style.cssText = 'position:absolute;left:-9999px;top:0;background:white;';
+
+    document.querySelectorAll('#pages-container .a5').forEach((page) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = [
+        'width:148mm', 'height:210mm', 'overflow:hidden',
+        'page-break-after:always', 'break-after:page',
+        'position:relative', 'background:white'
+      ].join(';');
+      wrapper.appendChild(page.cloneNode(true));
+      container.appendChild(wrapper);
+    });
+    document.body.appendChild(container);
+
+    const make  = DB[state.make]?.label || state.make || 'Heritage';
+    const model = (state.model || 'Book').split('(')[0].trim();
+    const year  = state.year || '';
+    const filename = ('Heritage-Books_' + make + '_' + model + (year ? '_' + year : '') + '.pdf')
+      .replace(/[^a-zA-Z0-9_\-\.]/g, '-');
+
+    await html2pdf().set({
+      margin:      0,
+      filename:    filename,
+      image:       { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF:       { unit: 'mm', format: 'a5', orientation: 'portrait' },
+      pagebreak:   { mode: ['css', 'legacy'] }
+    }).from(container).save();
+
+    document.body.removeChild(container);
+
+  } catch(e) {
+    console.error('PDF error:', e);
+    alert('PDF generation failed — try again or use Ctrl+P and Save as PDF.');
+  } finally {
     document.querySelectorAll('.a5').forEach((p, i) => {
       if (i !== state.currentPage) p.classList.remove('show');
     });
-  }, 1500);
+    applyA5Scale();
+    btn.innerHTML = origText;
+    btn.disabled = false;
+  }
 }
+
+function executePrint() { downloadPDF(); }
+function printBook()    { downloadPDF(); }
 
 // ══════════════════════════════════════════
 // MOBILE PANEL SWITCHING
