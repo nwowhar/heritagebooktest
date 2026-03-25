@@ -1381,20 +1381,19 @@ body {
     background-image: none !important;
   }
 
-  /* Force all text dark EXCEPT tags */
-  .a5 * { color: #1a1814 !important; border-color: #bbb !important; }
+  /* Force all text dark — tags handled separately below */
+  .a5 *:not(.tag-blk):not(.tag-gld):not(.tag-red) { color: #1a1814 !important; border-color: #bbb !important; }
 
-  /* Tags — preserve backgrounds and fix text */
-  .a5 .tag-blk { background: #1a1814 !important; color: white !important; }
-  .a5 .tag-gld { background: #8a6010 !important; color: white !important; }
+  /* Tags — white text on solid background */
+  .a5 .tag-blk { background: #1a1814 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .a5 .tag-gld { background: #8a6010 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* Gold accents */
   .a5 .ph-brand em,
-  .a5 .tag-gld,
   .a5 .stamp-z,
-  .a5 .ib-major-tag,
-  .a5 .ib-val,
-  .a5 .pop { color: #8a6010 !important; }
+  .a5 .ib-major-tag { color: #8a6010 !important; }
+  .a5 .ib-val { color: #1a1814 !important; font-weight: 600 !important; }
+  .a5 .pop { color: #1a1814 !important; font-weight: 600 !important; }
 
   /* Table shading */
   .a5 th { background: #ece9e0 !important; }
@@ -5251,7 +5250,7 @@ function buildModLogPage(num) {
 
 function buildManifestPage() {
   let rows = '';
-  for (let i = 0; i < 14; i++) rows += '<tr><td></td><td></td><td></td><td></td></tr>';
+  for (let i = 0; i < 8; i++) rows += '<tr><td></td><td></td><td></td><td></td></tr>';
   return `
     <div class="ph">
       <div><div class="ph-brand">Heritage <em>Books</em></div>
@@ -5260,7 +5259,7 @@ function buildManifestPage() {
       <div class="ph-meta">SEC 02 — GAP<br><strong>MOD-MANIFEST</strong></div>
     </div>
 
-    <div class="sh" style="margin-top:4mm;">Modifications Known at Acquisition <span class="tag tag-blk">YEAR ZERO BASELINE</span></div>
+    <div class="sh" style="margin-top:3mm;">Modifications Known at Acquisition <span class="tag tag-blk">YEAR ZERO BASELINE</span></div>
     <table class="man-tbl">
       <thead><tr><th style="width:30%">System / Component</th><th style="width:38%">Part / Brand / Spec</th><th>Date / Source</th></tr></thead>
       <tbody>
@@ -5268,11 +5267,10 @@ function buildManifestPage() {
         <tr><td></td><td></td><td></td></tr>
         <tr><td></td><td></td><td></td></tr>
         <tr><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td></tr>
       </tbody>
     </table>
 
-    <div class="sh">Ongoing Modification Manifest <span class="tag tag-blk">HARDWARE CHANGES</span></div>
+    <div class="sh" style="margin-top:3mm;">Ongoing Modification Manifest <span class="tag tag-blk">HARDWARE CHANGES</span></div>
     <table class="man-tbl">
       <thead><tr><th style="width:18%">Date</th><th style="width:25%">System</th><th style="width:35%">Part / Brand / Spec</th><th>By</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -5280,7 +5278,7 @@ function buildManifestPage() {
     <div class="pf">
       <div class="pf-s">HB · A5 · GAP-MOD</div>
       <div class="stamp-z">VERIFIED</div>
-      <div class="pf-p">PG 02</div>
+      <div class="pf-p">PG 03</div>
     </div>
   `;
 }
