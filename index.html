@@ -789,8 +789,7 @@ body {
 .nline { border-bottom: 0.5px solid var(--rule); height: 7.5mm; }
 
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 </head>
 <body>
 
@@ -5680,73 +5679,104 @@ function prevPage() { showPage(state.currentPage - 1); }
 function nextPage() { showPage(state.currentPage + 1); }
 
 // Print
-async function downloadPDF() {
+function downloadPDF() {
   const btn = document.getElementById('print-btn');
   const origText = btn.innerHTML;
+  btn.innerHTML = '↓ Opening…';
   btn.disabled = true;
 
   try {
-    // Make all pages visible, remove zoom
-    document.querySelectorAll('.a5').forEach(p => {
-      p.classList.add('show');
-      p.style.zoom = '';
-    });
-
-    // Snapshot the cover canvas to a data URL BEFORE cloning
-    // (cloneNode does not copy canvas pixel data)
+    // Snapshot cover canvas before anything else
     drawLiveCoverCanvas();
-    await new Promise(r => setTimeout(r, 120));
     const liveCv = document.getElementById('cover-canvas-live');
     const coverDataURL = liveCv ? liveCv.toDataURL('image/jpeg', 0.95) : null;
+
+    // Collect all page HTML, replacing any canvas with its image snapshot
+    const pages = Array.from(document.querySelectorAll('#pages-container .a5'));
+    let pagesHTML = '';
+    pages.forEach((page, idx) => {
+      let html = page.outerHTML;
+      // Replace canvas element with an img using the captured data URL
+      if (idx === 0 && coverDataURL) {
+        html = html.replace(/<canvas[^>]*><\/canvas>/, 
+          '<img src="' + coverDataURL + '" style="width:100%;height:100%;display:block;object-fit:cover;" />');
+      }
+      pagesHTML += html;
+    });
+
+    // Grab all stylesheets from parent page
+    const styles = Array.from(document.styleSheets).map(ss => {
+      try {
+        return Array.from(ss.cssRules).map(r => r.cssText).join('\n');
+      } catch(e) { return ''; }
+    }).join('\n');
+
+    // Google Fonts link
+    const fontsLink = document.querySelector('link[href*="fonts.googleapis"]')?.outerHTML || '';
 
     const make  = DB[state.make]?.label || state.make || 'Heritage';
     const model = (state.model || 'Book').split('(')[0].trim();
     const year  = state.year || '';
-    const filename = ('Heritage-Books_' + make + '_' + model + (year ? '_' + year : '') + '.pdf')
-      .replace(/[^a-zA-Z0-9_\-\.]/g, '-');
 
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' });
-    const pages = Array.from(document.querySelectorAll('#pages-container .a5'));
-    const W = 148, H = 210;
-
-    for (let idx = 0; idx < pages.length; idx++) {
-      btn.innerHTML = '↓ ' + (idx + 1) + ' / ' + pages.length;
-      if (idx > 0) pdf.addPage('a5', 'portrait');
-
-      const page = pages[idx];
-      const isCover = idx === 0;
-
-      if (isCover && coverDataURL) {
-        // Cover: use the pre-captured canvas image directly
-        pdf.addImage(coverDataURL, 'JPEG', 0, 0, W, H);
-      } else {
-        // Interior pages: render via html2canvas
-        const canvas = await html2canvas(page, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          width: page.offsetWidth,
-          height: page.offsetHeight,
-          windowWidth: page.offsetWidth,
-          windowHeight: page.offsetHeight,
-          logging: false
-        });
-        const imgData = canvas.toDataURL('image/jpeg', 0.92);
-        pdf.addImage(imgData, 'JPEG', 0, 0, W, H);
-      }
+    const printHTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Heritage Books — ${make} ${model} ${year}</title>
+  ${fontsLink}
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    ${styles}
+    /* Override dark theme for print window */
+    :root {
+      --ink: #1a1814;
+      --rule: #ccc;
+      --gold: #8a6010;
+      --red: #8b1a1a;
+      --body: 'Plus Jakarta Sans', sans-serif;
+      --mono: 'Share Tech Mono', monospace;
+      --cond: 'Barlow Condensed', sans-serif;
     }
+    body { background: white; color: #1a1814; }
+    @page { size: A5 portrait; margin: 0; }
+    .a5 {
+      display: block !important;
+      visibility: visible !important;
+      width: 148mm !important;
+      height: 210mm !important;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+      box-shadow: none !important;
+      zoom: 1 !important;
+      background: white;
+      position: relative;
+    }
+    .a5-cover { background: #111 !important; }
+  </style>
+</head>
+<body>
+  ${pagesHTML}
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() { window.print(); }, 800);
+    });
+  <\/script>
+</body>
+</html>`;
 
-    pdf.save(filename);
+    const printWin = window.open('', '_blank', 'width=700,height=900');
+    if (!printWin) {
+      alert('Pop-up blocked — please allow pop-ups for this page and try again.');
+      return;
+    }
+    printWin.document.write(printHTML);
+    printWin.document.close();
 
   } catch(e) {
     console.error('PDF error:', e);
-    alert('PDF generation failed: ' + e.message);
+    alert('PDF failed: ' + e.message);
   } finally {
-    document.querySelectorAll('.a5').forEach((p, i) => {
-      if (i !== state.currentPage) p.classList.remove('show');
-    });
-    applyA5Scale();
     btn.innerHTML = origText;
     btn.disabled = false;
   }
