@@ -1381,8 +1381,12 @@ body {
     background-image: none !important;
   }
 
-  /* Force all text dark */
+  /* Force all text dark EXCEPT tags */
   .a5 * { color: #1a1814 !important; border-color: #bbb !important; }
+
+  /* Tags — preserve backgrounds and fix text */
+  .a5 .tag-blk { background: #1a1814 !important; color: white !important; }
+  .a5 .tag-gld { background: #8a6010 !important; color: white !important; }
 
   /* Gold accents */
   .a5 .ph-brand em,
@@ -5152,16 +5156,16 @@ function buildInfoPage(s, sp, p) {
 // ══════════════════════════════════════════
 function buildBuildSheetPage(s) {
   const modCategory = (label, rows) => `
-    <div class="sh" style="margin-top:2.5mm;">${label} <span class="tag tag-blk">BUILD SPEC</span></div>
-    <table class="stbl" style="width:100%;">
+    <div class="sh" style="margin-top:1.5mm;margin-bottom:0.5mm;">${label} <span class="tag tag-blk">BUILD SPEC</span></div>
+    <table class="stbl" style="width:100%;border-collapse:collapse;">
       <thead><tr>
-        <th style="width:36%;">Component / Item</th>
-        <th style="width:32%;">Brand / Spec</th>
-        <th style="width:18%;">Part No.</th>
-        <th style="width:14%;">Date Fitted</th>
+        <th style="width:36%;padding:1mm 2mm;font-size:6px;">Component / Item</th>
+        <th style="width:32%;padding:1mm 2mm;font-size:6px;">Brand / Spec</th>
+        <th style="width:18%;padding:1mm 2mm;font-size:6px;">Part No.</th>
+        <th style="width:14%;padding:1mm 2mm;font-size:6px;">Date Fitted</th>
       </tr></thead>
       <tbody>
-        ${Array(rows).fill('<tr><td style="height:5mm;"></td><td></td><td></td><td></td></tr>').join('')}
+        ${Array(rows).fill('<tr><td style="height:4mm;border-bottom:0.5px solid #ddd;"></td><td style="border-bottom:0.5px solid #ddd;"></td><td style="border-bottom:0.5px solid #ddd;"></td><td style="border-bottom:0.5px solid #ddd;"></td></tr>').join('')}
       </tbody>
     </table>`;
 
@@ -5173,17 +5177,17 @@ function buildBuildSheetPage(s) {
       <div class="ph-meta">SEC 02 — MOD<br><strong>BUILD</strong></div>
     </div>
 
-    <div style="font-family:var(--mono);font-size:6px;color:#666;line-height:1.8;margin-bottom:2mm;border-bottom:0.5px solid var(--rule);padding-bottom:2mm;">
+    <div style="font-family:var(--mono);font-size:6px;color:#666;line-height:1.6;margin-bottom:1.5mm;border-bottom:0.5px solid var(--rule);padding-bottom:1.5mm;">
       Record the build spec of this vehicle at time of book issue. Use the Modifications Log pages for changes made during ownership.
     </div>
 
-    ${modCategory('Engine & Forced Induction', 3)}
+    ${modCategory('Engine & Forced Induction', 2)}
     ${modCategory('Fuel, Ignition & Tuning', 2)}
     ${modCategory('Drivetrain & Gearbox', 2)}
-    ${modCategory('Suspension & Brakes', 3)}
+    ${modCategory('Suspension & Brakes', 2)}
     ${modCategory('Wheels & Tyres', 2)}
-    ${modCategory('Exterior, Aero & Chassis', 2)}
-    ${modCategory('Electronics & ECU', 2)}
+    ${modCategory('Exterior, Aero & Chassis', 1)}
+    ${modCategory('Electronics & ECU', 1)}
 
     <div class="pf">
       <div class="pf-s">HB · A5 · BUILD-01 · ${s.vin || '—'}</div>
