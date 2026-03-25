@@ -1339,92 +1339,61 @@ body {
 <style id="print-styles">
 @media print {
   @page { size: A5 portrait; margin: 0; }
-}
-/* Internal print mode — activated only by printBook() with .print-mode class on body */
-body.print-mode * { display: revert !important; }
-@media print {
-  @page { size: A5 portrait; margin: 0; }
 
-  body.print-mode::after { display: none !important; }
+  /* Hide everything except pages */
+  .app-header, .sidebar, .preview-topbar, .page-tabs,
+  .pnav-info, .pnav-btn, .mobile-tabs, .order-pane,
+  .placeholder, .preview-order-cta, #print-btn,
+  .interval-group, .form-section, .field, .cover-grid { display: none !important; }
 
-  body.print-mode,
-  body.print-mode .preview-pane,
-  body.print-mode .a5 {
+  /* Show preview pane cleanly */
+  .preview-pane {
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: white !important;
+    flex: none !important;
+    width: 100% !important;
+  }
+
+  .app-body { display: block !important; }
+
+  /* Show all pages */
+  .a5 {
+    display: block !important;
+    visibility: visible !important;
+    width: 148mm !important;
+    height: 210mm !important;
+    overflow: hidden !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    box-shadow: none !important;
+    zoom: 1 !important;
+    margin: 0 !important;
     background: white !important;
     color: #1a1814 !important;
   }
 
   /* Force all text dark */
-  body.print-mode .a5 * {
-    color: inherit !important;
-    border-color: #ccc !important;
-  }
+  .a5 * { color: #1a1814 !important; border-color: #bbb !important; }
 
-  /* Specific dark-on-light overrides */
-  body.print-mode .a5 .ph-brand,
-  body.print-mode .a5 .sh,
-  body.print-mode .a5 .ib-val,
-  body.print-mode .a5 .svc-field-label,
-  body.print-mode .a5 .chk-item,
-  body.print-mode .a5 .fluid-label,
-  body.print-mode .a5 .ib-label,
-  body.print-mode .a5 .pf-s,
-  body.print-mode .a5 .pf-p,
-  body.print-mode .a5 table,
-  body.print-mode .a5 th,
-  body.print-mode .a5 td { color: #1a1814 !important; }
+  /* Gold accents */
+  .a5 .ph-brand em,
+  .a5 .tag-gld,
+  .a5 .stamp-z,
+  .a5 .ib-major-tag,
+  .a5 .ib-val,
+  .a5 .pop { color: #8a6010 !important; }
 
-  body.print-mode .a5 .ph-brand em,
-  body.print-mode .a5 .tag-gld,
-  body.print-mode .a5 .ib-major-tag,
-  body.print-mode .a5 .stamp-z { color: #8a6010 !important; }
+  /* Table shading */
+  .a5 th { background: #ece9e0 !important; }
+  .a5 .interval-banner { background: #fafaf8 !important; }
+  .a5 .interval-banner.major { background: #fff5f5 !important; }
 
-  body.print-mode .a5 .tag-blk { color: #555 !important; }
-  body.print-mode .a5 .interval-banner.major { background: #fff5f5 !important; }
-  body.print-mode .a5 .interval-banner { background: #fafaf8 !important; border-color: #ccc !important; }
-  body.print-mode .a5 .pop { color: #1a1814 !important; font-weight: 600 !important; }
-
-  /* Table backgrounds */
-  body.print-mode .a5 table,
-  body.print-mode .a5 thead { background: #f5f4f0 !important; }
-  body.print-mode .a5 th { background: #ece9e0 !important; color: #1a1814 !important; }
-
-  /* Write lines and checkboxes */
-  body.print-mode .a5 .nline,
-  body.print-mode .a5 .svc-field-line,
-  body.print-mode .a5 .fluid-line,
-  body.print-mode .a5 .ib-write-line { border-bottom-color: #999 !important; }
-  body.print-mode .a5 .chk-sq,
-  body.print-mode .a5 .fluid-check-sq { border-color: #555 !important; }
-  body.print-mode .a5 .rule { border-color: #ccc !important; }
-
-  /* Hide all UI chrome */
-  body.print-mode .app-header,
-  body.print-mode .sidebar,
-  body.print-mode .preview-topbar,
-  body.print-mode .page-tabs,
-  body.print-mode .pnav-info,
-  body.print-mode .pdf-modal,
-  body.print-mode .mobile-tabs,
-  body.print-mode .order-pane,
-  body.print-mode .pnav-btn,
-  body.print-mode .placeholder { display: none !important; }
-
-  body.print-mode .preview-pane { max-height: none !important; overflow: visible !important; padding: 0 !important; }
-  body.print-mode .a5-wrap { display: flex !important; }
-  body.print-mode .a5 {
-    display: block !important;
-    box-shadow: none !important;
-    margin: 0 !important;
-    zoom: 1 !important;
-    width: 148mm !important;
-    height: 210mm !important;
-    page-break-after: always;
-    break-after: page;
-    overflow: hidden;
-  }
-  body.print-mode .a5::after { display: none !important; }
-  body.print-mode #pdf-modal { display: none !important; }
+  /* Write lines */
+  .a5 .nline, .a5 .svc-field-line,
+  .a5 .fluid-line, .a5 .ib-write-line { border-bottom-color: #999 !important; }
+  .a5 .chk-sq, .a5 .fluid-check-sq { border-color: #555 !important; }
 }
 </style>
 
@@ -5730,27 +5699,25 @@ function downloadPDF() {
   btn.innerHTML = '↓ Preparing…';
   btn.disabled = true;
 
-  // Show all pages, kill zoom, add print-mode
+  // Show all pages, remove zoom
   document.querySelectorAll('.a5').forEach(p => {
     p.classList.add('show');
     p.style.zoom = '';
   });
-  document.body.classList.add('print-mode');
 
-  // Let the DOM repaint, then print
+  // Repaint then print
   setTimeout(() => {
     window.print();
-    // Restore after dialog closes
+    // Restore after print dialog closes
     setTimeout(() => {
-      document.body.classList.remove('print-mode');
       document.querySelectorAll('.a5').forEach((p, i) => {
         if (i !== state.currentPage) p.classList.remove('show');
       });
       applyA5Scale();
       btn.innerHTML = '↓ PDF';
       btn.disabled = false;
-    }, 1500);
-  }, 150);
+    }, 2000);
+  }, 200);
 }
 
 function executePrint() { downloadPDF(); }
