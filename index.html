@@ -5027,8 +5027,8 @@ function odometerDisplay(v) {
 }
 
 function drawLiveCoverCanvas() {
-  const canvas = document.getElementById('cover-canvas-live');
-  if (!canvas) return;
+  const wrap = document.getElementById('cover-svg-wrap');
+  if (!wrap) return;
   const s = state;
   const info = {
     make:    DB[s.make]?.label || s.make || '',
@@ -5039,1245 +5039,265 @@ function drawLiveCoverCanvas() {
     persona: s.persona || '',
   };
   const design = COVER_DESIGNS.find(d => d.id === coverState.design) || COVER_DESIGNS[0];
-  design.draw(canvas, info);
+  wrap.innerHTML = design.svg(info);
 }
 
 function buildCoverPageHTML(s) {
-  const coverId = 'cover-canvas-live';
-
-  const SCALE = 1.5;
-  const DW = Math.round(148 * 3.78);
-  const DH = Math.round(210 * 3.78);
-  const CW = DW * SCALE;
-  const CH = DH * SCALE;
-
-  return `
-    <div style="position:relative;width:100%;height:100%;overflow:hidden;background:#000;padding:0;margin:0;line-height:0;">
-      <canvas id="${coverId}"
-        width="${CW}" height="${CH}"
-        style="width:100%;height:100%;display:block;image-rendering:high-quality;"></canvas>
-    </div>
-  `;
+  const info = {
+    make:    DB[s.make]?.label || s.make || '',
+    model:   (s.model || '').split('(')[0].trim(),
+    engine:  s.engine  || '',
+    year:    s.year    || '',
+    owner:   s.owner   || '',
+    persona: s.persona || '',
+  };
+  const design = COVER_DESIGNS.find(d => d.id === coverState.design) || COVER_DESIGNS[0];
+  return `<div id="cover-svg-wrap" style="width:100%;height:100%;overflow:hidden;">${design.svg(info)}</div>`;
 }
 
-function buildInfoPage(s, sp, p) {
-  const personaCode = PERSONA_CODES[p] || '—';
-  const personaTag  = PERSONA_NAMES[p] || '—';
-  const makeLabel   = DB[s.make]?.label || s.make;
-  const effectiveOil = s.oilOverride || sp?.oil || '—';
+// ── SVG HELPERS ────────────────────────────
+const VW = 559, VH = 794; // viewBox units matching original canvas coords
 
-  const specRows = sp ? `
-    <table class="stbl">
-      <tr><td class="l">Engine Oil</td><td class="v pop">${effectiveOil}${s.oilOverride ? ' <em style="font-size:6px;color:#8a6a28;">(OWNER SPEC)</em>' : ''}</td><td class="l">Oil Capacity</td><td class="v pop">${sp.oilCap}</td></tr>
-      <tr><td class="l">Coolant</td><td class="v pop" colspan="3">${sp.coolant}</td></tr>
-      <tr><td class="l">Gearbox</td><td class="v pop">${sp.gearbox}</td><td class="l">Diff Fluid</td><td class="v pop">${sp.diff}</td></tr>
-      ${sp.transferCase ? `<tr><td class="l">Transfer Case</td><td class="v pop" colspan="3">${sp.transferCase}</td></tr>` : ''}
-      <tr><td class="l">Brake Fluid</td><td class="v pop">${sp.brake}</td><td class="l">Fuel Octane</td><td class="v pop">${sp.octane || '—'}</td></tr>
-      <tr><td class="l">Plug Gap</td><td class="v pop">${sp.plugGap || '—'}</td><td class="l" colspan="2"></td></tr>
-    </table>
-  ` : '';
-
-  // Use state vehicle specs (user-filled or auto-populated)
-  const disp    = s.displacement  || '—';
-  const drive   = s.drivetrain    || '—';
-  const gboxT   = s.gearboxType   || '—';
-  const gears   = s.gears         || '—';
-  const suspF   = s.suspF         || '—';
-  const suspR   = s.suspR         || '—';
-  const pwr     = s.power         || '—';
-  const tq      = s.torque        || '—';
-
-  return `
-    <div class="ph">
-      <div><div class="ph-brand">Heritage <em>Books</em></div>
-        <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">VEHICLE INFORMATION RECORD</div>
-      </div>
-      <div class="ph-meta">SEC 01 — IDENTITY<br>SERIES: A · <strong>${personaCode}</strong></div>
-    </div>
-
-    <div class="dp">
-      <div class="dp-hdr">VEHICLE IDENTIFICATION — YEAR ZERO BASELINE</div>
-      <div class="pg">
-        <div class="pc wide">
-          <div class="clbl">VIN / Chassis Number</div>
-          <div class="cval" style="font-size:10px;letter-spacing:2px;">${val(s.vin) || '_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'}</div>
-        </div>
-        <div class="pc">
-          <div class="clbl">Make / Model</div>
-          <div class="cval">${val(makeLabel + (s.model ? ' ' + s.model : ''))}</div>
-        </div>
-        <div class="pc">
-          <div class="clbl">Engine Code</div>
-          <div class="cval">${val(s.engine)}</div>
-        </div>
-        <div class="pc">
-          <div class="clbl">Paint Code</div>
-          <div class="cval">${val(s.paint)}</div>
-        </div>
-        <div class="pc">
-          <div class="clbl">Year of Manufacture</div>
-          <div class="cval">${val(s.year)}</div>
-        </div>
-        <div class="pc wide">
-          <div class="clbl">Baseline Odometer — Year Zero &nbsp;←&nbsp; km</div>
-          <div class="cval" style="font-size:15px;letter-spacing:5px;font-family:var(--mono);">${odometerDisplay(s.odo)}</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="sh">Vehicle Technical Specifications <span class="tag tag-blk">STATIC</span></div>
-    <table class="stbl">
-      <tr><td class="l">Displacement</td><td class="v">${disp}</td><td class="l">Drive Layout</td><td class="v">${drive}</td></tr>
-      <tr><td class="l">Gearbox</td><td class="v">${gboxT}</td><td class="l">No. Gears</td><td class="v">${gears}</td></tr>
-      <tr><td class="l">Suspension (F)</td><td class="v">${suspF}</td><td class="l">Suspension (R)</td><td class="v">${suspR}</td></tr>
-      <tr><td class="l">Power</td><td class="v">${pwr}</td><td class="l">Torque</td><td class="v">${tq}</td></tr>
-    </table>
-
-    <div class="sh">Auto-populated Fluid Specifications <span class="tag tag-gld">${personaTag}</span></div>
-    ${specRows}
-
-    <div style="margin-top:5mm;border-top:0.5px solid #c8bfa855;padding-top:3mm;">
-      <div style="font-family:var(--mono);font-size:5.5px;color:#888;line-height:1.7;letter-spacing:0.3px;">
-        <strong style="color:#aaa;letter-spacing:1px;">DISCLAIMER</strong> — Heritage Books is an independent personal record-keeping journal and is not affiliated with, endorsed by, or authorised by any vehicle manufacturer, dealer, or OEM parts supplier. Fluid specifications and service intervals shown are provided as a general reference only and may not reflect current manufacturer recommendations, regional variations, or your specific vehicle's build specification. Always verify fluid types, capacities, and service intervals with your vehicle's official workshop manual or a qualified mechanic before performing any service. The owner assumes full responsibility for all service decisions. Heritage Books accepts no liability for any loss, damage, or injury arising from the use of information recorded or referenced in this book.
-      </div>
-    </div>
-
-    <div class="pf">
-      <div class="pf-s">HB · A5 · INFO-01 · ${s.vin || '—'}</div>
-      <div class="stamp-z">VERIFIED</div>
-      <div class="pf-p">PG 01</div>
-    </div>
-  `;
+function svgNoise(id, alpha) {
+  return `<filter id="${id}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" stitchTiles="stitch" result="noise"/>
+    <feColorMatrix type="matrix" values="0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 ${alpha * 2} 0" in="noise" result="tinted"/>
+    <feBlend in="SourceGraphic" in2="tinted" mode="overlay"/>
+  </filter>`;
 }
 
-// ══════════════════════════════════════════
-// BUILD SHEET — static modifications record
-// ══════════════════════════════════════════
-function buildBuildSheetPage(s) {
-  const modCategory = (label, rows) => `
-    <div class="sh" style="margin-top:1.5mm;margin-bottom:0.5mm;">${label} <span class="tag tag-blk">BUILD SPEC</span></div>
-    <table class="stbl" style="width:100%;border-collapse:collapse;">
-      <thead><tr>
-        <th style="width:36%;padding:1mm 2mm;font-size:6px;">Component / Item</th>
-        <th style="width:32%;padding:1mm 2mm;font-size:6px;">Brand / Spec</th>
-        <th style="width:18%;padding:1mm 2mm;font-size:6px;">Part No.</th>
-        <th style="width:14%;padding:1mm 2mm;font-size:6px;">Date Fitted</th>
-      </tr></thead>
-      <tbody>
-        ${Array(rows).fill('<tr><td style="height:4mm;border-bottom:0.5px solid #ddd;"></td><td style="border-bottom:0.5px solid #ddd;"></td><td style="border-bottom:0.5px solid #ddd;"></td><td style="border-bottom:0.5px solid #ddd;"></td></tr>').join('')}
-      </tbody>
-    </table>`;
-
-  return `
-    <div class="ph">
-      <div><div class="ph-brand">Heritage <em>Books</em></div>
-        <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">BUILD SHEET — MODIFICATIONS RECORD</div>
-      </div>
-      <div class="ph-meta">SEC 02 — MOD<br><strong>BUILD</strong></div>
-    </div>
-
-    <div style="font-family:var(--mono);font-size:6px;color:#666;line-height:1.6;margin-bottom:1.5mm;border-bottom:0.5px solid var(--rule);padding-bottom:1.5mm;">
-      Record the build spec of this vehicle at time of book issue. Use the Modifications Log pages for changes made during ownership.
-    </div>
-
-    ${modCategory('Engine & Forced Induction', 2)}
-    ${modCategory('Fuel, Ignition & Tuning', 2)}
-    ${modCategory('Drivetrain & Gearbox', 2)}
-    ${modCategory('Suspension & Brakes', 2)}
-    ${modCategory('Wheels & Tyres', 2)}
-    ${modCategory('Exterior, Aero & Chassis', 1)}
-    ${modCategory('Electronics & ECU', 1)}
-
-    <div class="pf">
-      <div class="pf-s">HB · A5 · BUILD-01 · ${s.vin || '—'}</div>
-      <div class="stamp-z">BUILD</div>
-      <div class="pf-p">PG 02</div>
-    </div>
-  `;
+function svgWrap(inner, info) {
+  const nid = 'n' + Math.random().toString(36).slice(2,6);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" width="100%" height="100%" style="display:block;">
+  <defs>
+    ${svgNoise(nid, 0.06)}
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&amp;family=Barlow+Condensed:wght@300;400;600;700;800;900&amp;family=Share+Tech+Mono&amp;display=swap');
+    </style>
+  </defs>
+  <g filter="url(#${nid})">${inner}</g>
+</svg>`;
 }
 
-// ══════════════════════════════════════════
-// MOD LOG PAGES — ongoing modifications diary
-// ══════════════════════════════════════════
-function buildModLogPage(num) {
-  const pgBase = 1 + GAP_PAGES.length + SVC_PAGES + num;
-  const rows = Array(14).fill('').map(() => `
-    <tr>
-      <td style="height:5.5mm;border-bottom:0.5px solid var(--rule);font-family:var(--mono);font-size:6px;"></td>
-      <td style="border-bottom:0.5px solid var(--rule);font-family:var(--mono);font-size:6px;text-align:center;"></td>
-      <td style="border-bottom:0.5px solid var(--rule);"></td>
-      <td style="border-bottom:0.5px solid var(--rule);"></td>
-      <td style="border-bottom:0.5px solid var(--rule);text-align:right;"></td>
-    </tr>`).join('');
-
-  return `
-    <div class="ph">
-      <div><div class="ph-brand">Heritage <em>Books</em></div>
-        <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">MODIFICATIONS LOG — ONGOING RECORD</div>
-      </div>
-      <div class="ph-meta">LOG ${String(num).padStart(2,'0')} / ${MOD_LOG_PAGES}<br><strong style="color:var(--gold);">MODS</strong></div>
-    </div>
-
-    <div style="font-family:var(--mono);font-size:6px;color:#666;margin-bottom:2.5mm;line-height:1.8;border-bottom:0.5px solid var(--rule);padding-bottom:1.5mm;">
-      Record each modification as it is fitted. Category codes: ENG · SUSP · DRV · FUEL · ECU · EXT · WHEEL · OTHER
-    </div>
-
-    <table class="svc-tbl" style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="background:rgba(184,145,58,0.07);">
-          <th style="width:13%;font-family:var(--cond);font-size:7px;letter-spacing:1px;padding:2mm 1mm;text-align:left;">Date</th>
-          <th style="width:9%;font-family:var(--cond);font-size:7px;letter-spacing:1px;padding:2mm 1mm;text-align:center;">Cat</th>
-          <th style="width:42%;font-family:var(--cond);font-size:7px;letter-spacing:1px;padding:2mm 1mm;text-align:left;">Modification / Part / Spec</th>
-          <th style="width:24%;font-family:var(--cond);font-size:7px;letter-spacing:1px;padding:2mm 1mm;text-align:left;">Supplier / Fitter</th>
-          <th style="width:12%;font-family:var(--cond);font-size:7px;letter-spacing:1px;padding:2mm 1mm;text-align:right;">Cost $</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-
-    <div style="margin-top:3mm;">
-      <div class="sh">Notes</div>
-      <div class="nlines">${Array(3).fill('<div class="nline"></div>').join('')}</div>
-    </div>
-
-    <div class="pf">
-      <div class="pf-s">HB · A5 · MOD-LOG-${String(num).padStart(2,'0')}</div>
-      <div class="stamp-z">MODS</div>
-      <div class="pf-p">PG ${String(pgBase).padStart(2,'0')}</div>
-    </div>
-  `;
-}
-
-function buildManifestPage() {
-  let rows = '';
-  for (let i = 0; i < 8; i++) rows += '<tr><td></td><td></td><td></td><td></td></tr>';
-  return `
-    <div class="ph">
-      <div><div class="ph-brand">Heritage <em>Books</em></div>
-        <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">MODIFICATION MANIFEST</div>
-      </div>
-      <div class="ph-meta">SEC 02 — GAP<br><strong>MOD-MANIFEST</strong></div>
-    </div>
-
-    <div class="sh" style="margin-top:3mm;">Modifications Known at Acquisition <span class="tag tag-blk">YEAR ZERO BASELINE</span></div>
-    <table class="man-tbl">
-      <thead><tr><th style="width:30%">System / Component</th><th style="width:38%">Part / Brand / Spec</th><th>Date / Source</th></tr></thead>
-      <tbody>
-        <tr><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td></tr>
-      </tbody>
-    </table>
-
-    <div class="sh" style="margin-top:3mm;">Ongoing Modification Manifest <span class="tag tag-blk">HARDWARE CHANGES</span></div>
-    <table class="man-tbl">
-      <thead><tr><th style="width:18%">Date</th><th style="width:25%">System</th><th style="width:35%">Part / Brand / Spec</th><th>By</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="pf">
-      <div class="pf-s">HB · A5 · GAP-MOD</div>
-      <div class="stamp-z">VERIFIED</div>
-      <div class="pf-p">PG 03</div>
-    </div>
-  `;
-}
-
-function buildPartsPage(persona) {
-  const condCells = () => `<td style="font-size:7px;padding:1mm 2mm;">
-    <span style="display:inline-flex;gap:2mm;align-items:center;font-family:var(--mono);font-size:6.5px;">
-      <span style="width:3mm;height:3mm;border:1px solid #333;display:inline-block;"></span>New
-      <span style="width:3mm;height:3mm;border:1px solid #333;display:inline-block;margin-left:2mm;"></span>Good
-      <span style="width:3mm;height:3mm;border:1px solid #333;display:inline-block;margin-left:2mm;"></span>Worn
-    </span>
-  </td>`;
-  const partRow = (name) => `<tr><td style="font-size:6.5px;padding:1mm 2mm;background:var(--paper2);color:#555;">${name}</td>${condCells()}<td></td><td></td></tr>`;
-
-  const personaRow = {
-    jdm: partRow('Turbo / Gaskets'),
-    fourwd: partRow('Transfer Case Seals'),
-    euro: partRow('Expansion Tank / Cap')
-  }[persona] || '';
-
-  return `
-    <div class="ph">
-      <div><div class="ph-brand">Heritage <em>Books</em></div>
-        <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">PARTS CONDITION TRACKER</div>
-      </div>
-      <div class="ph-meta">SEC 02 — GAP<br><strong>PARTS-COND</strong></div>
-    </div>
-    <div class="sh" style="margin-top:4mm;">Year Zero Condition Snapshot <span class="tag tag-blk">BASELINE</span></div>
-    <table class="man-tbl">
-      <thead><tr><th style="width:28%">Component</th><th style="width:36%">Condition</th><th style="width:18%">Date</th><th>Notes</th></tr></thead>
-      <tbody>
-        ${partRow('Timing Belt / Chain')}
-        ${partRow('Water Pump')}
-        ${partRow('Alternator')}
-        ${partRow('Starter Motor')}
-        ${partRow('Clutch Assembly')}
-        ${partRow('Brake Pads (F)')}
-        ${partRow('Brake Pads (R)')}
-        ${partRow('Tyres (F)')}
-        ${partRow('Tyres (R)')}
-        ${partRow('Shock Absorbers')}
-        ${personaRow}
-      </tbody>
-    </table>
-    <div class="pf">
-      <div class="pf-s">HB · A5 · GAP-PARTS</div>
-      <div class="stamp-z">VERIFIED</div>
-      <div class="pf-p">PG 03</div>
-    </div>
-  `;
-}
-
-function buildAncillaryPage(persona) {
-  const row = (name) => `<tr><td style="font-size:6.5px;padding:1mm 2mm;background:var(--paper2);color:#555;">${name}</td><td></td><td></td><td></td><td></td></tr>`;
-  const personaRow = {
-    jdm: row('Timing Belt (JDM)'),
-    fourwd: row('Transfer Case Oil'),
-    euro: row('Microfilter / Cabin')
-  }[persona] || '';
-
-  return `
-    <div class="ph">
-      <div><div class="ph-brand">Heritage <em>Books</em></div>
-        <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">ANCILLARY &amp; WEAR ITEM LOG</div>
-      </div>
-      <div class="ph-meta">SEC 02 — GAP<br><strong>ANCILLARY</strong></div>
-    </div>
-    <div class="sh" style="margin-top:4mm;">Scheduled Wear Item Tracking <span class="tag tag-blk">CONDITION-BASED</span></div>
-    <table class="man-tbl">
-      <thead><tr><th style="width:26%">Item</th><th style="width:16%">Last (km)</th><th style="width:16%">Next Due</th><th style="width:22%">Part / Brand</th><th>Notes</th></tr></thead>
-      <tbody>
-        ${row('Engine Oil & Filter')}
-        ${row('Spark Plugs')}
-        ${row('Air Filter')}
-        ${row('Fuel Filter')}
-        ${row('Gearbox Oil')}
-        ${row('Diff Oil')}
-        ${row('Coolant Flush')}
-        ${row('Brake Fluid')}
-        ${row('Aux / Serpentine Belt')}
-        ${personaRow}
-        ${row('____________')}
-        ${row('____________')}
-      </tbody>
-    </table>
-    <div class="pf">
-      <div class="pf-s">HB · A5 · GAP-ANC</div>
-      <div class="stamp-z">VERIFIED</div>
-      <div class="pf-p">PG 03</div>
-    </div>
-  `;
-}
-
-function buildNotesPage() {
-  const lines = Array(22).fill('<div class="nline"></div>').join('');
-  return `
-    <div class="ph">
-      <div><div class="ph-brand">Heritage <em>Books</em></div>
-        <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">TECHNICAL NOTES</div>
-      </div>
-      <div class="ph-meta">SEC 02 — GAP<br><strong>NOTES</strong></div>
-    </div>
-    <div class="sh" style="margin-top:4mm;">Notes &amp; Observations <span class="tag tag-blk">FREE FORM</span></div>
-    <div class="nlines">${lines}</div>
-    <div class="pf">
-      <div class="pf-s">HB · A5 · GAP-NOTES</div>
-      <div></div>
-      <div class="pf-p">PG 04</div>
-    </div>
-  `;
-}
-
-function buildServicePage(i, s, sp, p) {
-  const pgNum   = i + 4;  // Cover unnumbered, Info=01, Manifest=02, Ancillary=03, Notes=04, Svc01=05
-  const minorKm = s.interval;
-  const majorKm = s.majorInterval || 40000;
-  // A page is major if its cumulative km is a multiple of majorKm
-  const cumulativeKm = i * minorKm;
-  const isMajor = (cumulativeKm > 0) && (cumulativeKm % majorKm === 0);
-  const svcType = isMajor ? 'MAJOR SERVICE' : 'MINOR SERVICE';
-  const svcTag  = isMajor ? `${majorKm.toLocaleString()} KM` : `${minorKm.toLocaleString()} KM`;
-
-  // Merge persona base checks + engine-specific extras
-  const engineExtras = (sp && sp.extras) ? sp.extras : [];
-  const allChecks = [...(CHECKPOINTS[p] || []), ...engineExtras];
-  const checks = allChecks.map(c =>
-    `<div class="chk-item"><div class="chk-sq"></div>${c}</div>`
-  ).join('');
-
-  const timeInterval = s.timeInterval || '6 months';
-  const intervalGuide = `${minorKm.toLocaleString()} km or ${timeInterval}`;
-
-  const effectiveOil = s.oilOverride || (sp ? sp.oil : '—');
-
-  // Fluid log — always show oil section, show drivetrain fluids on major pages
-  const fluidLog = `
-    <div class="sh" style="margin-top:2mm;">Fluids Used <span class="tag tag-blk">LOG ACTUAL</span></div>
-    <div class="fluid-log">
-      <div class="fluid-row">
-        <span class="fluid-label">Engine oil grade</span>
-        <span class="fluid-line"></span>
-        <span style="font-family:var(--mono);font-size:6px;color:#888;padding-bottom:1px;flex-shrink:0;padding-left:2mm;">qty</span>
-        <span class="fluid-line" style="flex:0 0 14mm;"></span>
-        <span class="fluid-check"><span class="fluid-check-sq"></span>Filter □</span>
-      </div>
-      <div class="fluid-row">
-        <span class="fluid-label">Coolant</span>
-        <span class="fluid-line"></span>
-        <span class="fluid-check"><span class="fluid-check-sq"></span>Top-up</span>
-        <span class="fluid-check" style="margin-left:2mm;"><span class="fluid-check-sq"></span>Full flush</span>
-      </div>
-      <div class="fluid-row">
-        <span class="fluid-label">Brake fluid</span>
-        <span class="fluid-line"></span>
-        <span class="fluid-check"><span class="fluid-check-sq"></span>Top-up</span>
-        <span class="fluid-check" style="margin-left:2mm;"><span class="fluid-check-sq"></span>Full flush</span>
-      </div>
-      ${isMajor ? `
-      <div class="fluid-row">
-        <span class="fluid-label">Gearbox / trans</span>
-        <span class="fluid-line"></span>
-        <span style="font-family:var(--mono);font-size:6px;color:#888;padding-bottom:1px;flex-shrink:0;padding-left:2mm;">grade</span>
-        <span class="fluid-line" style="flex:0 0 18mm;"></span>
-        <span class="fluid-check"><span class="fluid-check-sq"></span>Changed</span>
-      </div>
-      <div class="fluid-row">
-        <span class="fluid-label">Diff / transfer</span>
-        <span class="fluid-line"></span>
-        <span style="font-family:var(--mono);font-size:6px;color:#888;padding-bottom:1px;flex-shrink:0;padding-left:2mm;">grade</span>
-        <span class="fluid-line" style="flex:0 0 18mm;"></span>
-        <span class="fluid-check"><span class="fluid-check-sq"></span>Changed</span>
-      </div>
-      ` : ''}
-    </div>`;
-
-  // Major pages get an extra banner line + 2 note lines instead of 3
-  const majorExtras = isMajor ? `
-    <div style="font-family:var(--mono);font-size:6px;color:var(--red);margin-top:1.5mm;letter-spacing:0.5px;padding-left:1mm;">
-      ★ MAJOR SVC — check: timing belt / spark plugs / air filter / fuel filter / PCV / all drive belt tensioners
-    </div>` : '';
-
-  return `
-    <div class="ph">
-      <div><div class="ph-brand">Heritage <em>Books</em></div>
-        <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">SERVICE &amp; MAINTENANCE RECORD</div>
-      </div>
-      <div class="ph-meta">LOG ${String(i).padStart(2,'0')} / ${SVC_PAGES}<br>PG <strong style="color:${isMajor ? 'var(--red)' : 'var(--gold)'};">${String(pgNum).padStart(2,'0')}</strong></div>
-    </div>
-
-    <div class="interval-banner${isMajor ? ' major' : ''}">
-      <div>
-        <div class="ib-label">Service Type</div>
-        <div class="ib-val">${svcType}</div>
-      </div>
-      <div style="border-left:1px solid var(--rule);padding-left:4mm;">
-        <div class="ib-label">Guide Interval</div>
-        <div class="ib-val" style="font-size:7px;">${intervalGuide}</div>
-      </div>
-      <div style="border-left:1px solid var(--rule);padding-left:4mm;flex:1;">
-        <div class="ib-label">Next Due — km</div>
-        <div class="ib-write-line"></div>
-      </div>
-      <div style="border-left:1px solid var(--rule);padding-left:4mm;flex:1;">
-        <div class="ib-label">Next Due — date</div>
-        <div class="ib-write-line"></div>
-      </div>
-      <div class="ib-note">${effectiveOil}</div>
-      ${isMajor ? '<div class="ib-major-tag">MAJOR</div>' : ''}
-    </div>
-
-    <div class="svc-entry-row">
-      <div class="svc-entry-field date">
-        <div class="svc-field-label">Date</div>
-        <div class="svc-field-line"></div>
-      </div>
-      <div class="svc-entry-field odo">
-        <div class="svc-field-label">Odometer (km)</div>
-        <div class="svc-field-line"></div>
-      </div>
-      <div class="svc-entry-field wksp">
-        <div class="svc-field-label">Workshop / Technician</div>
-        <div class="svc-field-line"></div>
-      </div>
-    </div>
-
-    <div class="sh" style="margin-top:1.5mm;">Works Performed <span class="tag tag-blk">RECORD</span></div>
-    <table class="svc-tbl">
-      <thead><tr>
-        <th>Description of Work / Parts Used / Part Numbers</th>
-      </tr></thead>
-      <tbody>
-        <tr><td style="height:6mm;"></td></tr>
-        <tr><td style="height:6mm;"></td></tr>
-        <tr><td style="height:6mm;"></td></tr>
-      </tbody>
-    </table>
-
-    ${fluidLog}
-
-    <div class="sh" style="margin-top:2mm;">Inspection Checklist
-      <span style="display:flex;align-items:center;gap:4mm;">
-        <span class="tag tag-gld">${PERSONA_NAMES[p] || '—'}</span>
-        <span style="font-size:6px;color:#aaa;font-family:var(--mono);">✓ OK &nbsp; ✗ ACTION REQD &nbsp; N/A</span>
-      </span>
-    </div>
-    <div class="chk-grid">${checks}</div>
-    ${majorExtras}
-
-    <div class="svc-btm">
-      <div class="svc-n">
-        <div class="nlbl">Notes</div>
-        <div class="nl"></div>
-        <div class="nl"></div>
-        ${isMajor ? '' : '<div class="nl"></div>'}
-      </div>
-      <div class="stk">
-        <span class="stk-c tl">42mm</span>
-        <span class="stk-c br">20mm</span>
-        <div class="stk-inner">WORKSHOP<br>STICKER</div>
-      </div>
-    </div>
-
-    <div class="pf">
-      <div class="pf-s">HB · A5 · ${isMajor ? 'MAJ' : 'MIN'}-${String(i).padStart(2,'0')} · ${s.vin || '—'}</div>
-      <div class="stamp-z">STAMP</div>
-      <div class="pf-p">PG ${String(pgNum).padStart(2,'0')}</div>
-    </div>
-  `;
-}
-
-function buildReceiptPage(num, s) {
-  const makeLabel = DB[s.make]?.label || s.make;
-  const title = num === 1 ? 'WORKSHOP INVOICE LOG' :
-                num === 2 ? 'WORKSHOP INVOICE LOG (cont.)' :
-                num === 3 ? 'WORKSHOP INVOICE LOG (cont.)' :
-                num === 4 ? 'WORKSHOP INVOICE LOG (cont.)' :
-                            'REGISTRATION & COMPLIANCE RECORDS';
-  const pgNum = 1 + GAP_PAGES.length + SVC_PAGES + num;
-
-  if (num <= 4) {
-    // Workshop invoice log — all paid work: shops, alignments, dyno, RWC, tyre fitting etc
-    let rows = '';
-    for (let i = 0; i < 10; i++) {
-      rows += `<tr><td></td><td></td><td></td><td></td><td></td></tr>`;
-    }
-    return `
-      <div class="ph">
-        <div><div class="ph-brand">Heritage <em>Books</em></div>
-          <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">${title}</div>
-        </div>
-        <div class="ph-meta">SEC 05 — RECEIPTS<br><strong>RCP-WRK-0${num}</strong></div>
-      </div>
-      <div class="sh" style="margin-top:4mm;">Workshop & Trade Invoice Log <span class="tag tag-blk">PAID WORK</span></div>
-      <div style="font-family:var(--mono);font-size:6px;color:#888;margin-bottom:2mm;line-height:1.5;">
-        Record all paid work — workshop services, wheel alignments, tyre fitting, dyno runs, WOF / safety checks, and any other trade invoices.
-      </div>
-      <table class="man-tbl" style="font-size:6.5px;">
-        <thead><tr>
-          <th style="width:17%">Date</th>
-          <th style="width:26%">Workshop / Business</th>
-          <th style="width:15%">Invoice #</th>
-          <th style="width:14%">Amount ($)</th>
-          <th>Work Performed</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <div class="pf">
-        <div class="pf-s">HB · A5 · RCP-WRK-0${num} · ${s.vin || '—'}</div>
-        <div class="stamp-z">INVOICES</div>
-        <div class="pf-p">PG ${String(pgNum).padStart(2,'0')}</div>
-      </div>
-    `;
-  }
-
-  // Page 5: Rego / compliance / insurance records
-  return `
-    <div class="ph">
-      <div><div class="ph-brand">Heritage <em>Books</em></div>
-        <div style="font-family:var(--mono);font-size:6.5px;color:#aaa;margin-top:1mm;letter-spacing:1px;">${title}</div>
-      </div>
-      <div class="ph-meta">SEC 05 — RECEIPTS<br><strong>RCP-REG-01</strong></div>
-    </div>
-
-    <div class="sh" style="margin-top:3mm;">Registration History <span class="tag tag-blk">ANNUAL</span></div>
-    <table class="man-tbl compact" style="font-size:6.5px;">
-      <thead><tr>
-        <th style="width:14%">Year</th>
-        <th style="width:18%">Expiry Date</th>
-        <th style="width:16%">Plate</th>
-        <th style="width:12%">State</th>
-        <th style="width:16%">Odo (km)</th>
-        <th>Notes</th>
-      </tr></thead>
-      <tbody>
-        ${Array(12).fill('<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>').join('')}
-      </tbody>
-    </table>
-
-    <div class="sh" style="margin-top:2mm;">Insurance Record <span class="tag tag-blk">ANNUAL</span></div>
-    <table class="man-tbl compact" style="font-size:6.5px;">
-      <thead><tr>
-        <th style="width:12%">Year</th>
-        <th style="width:24%">Insurer</th>
-        <th style="width:20%">Policy No.</th>
-        <th style="width:14%">Type</th>
-        <th>Agreed Value ($)</th>
-      </tr></thead>
-      <tbody>
-        ${Array(8).fill('<tr><td></td><td></td><td></td><td></td><td></td></tr>').join('')}
-      </tbody>
-    </table>
-
-    <div class="sh" style="margin-top:2mm;">RWC / Compliance / Engineering Sign-Offs <span class="tag tag-blk">INSPECTIONS</span></div>
-    <table class="man-tbl compact" style="font-size:6.5px;">
-      <thead><tr>
-        <th style="width:16%">Date</th>
-        <th style="width:26%">Inspector / Authority</th>
-        <th style="width:20%">Certificate No.</th>
-        <th>Scope / Notes</th>
-      </tr></thead>
-      <tbody>
-        ${Array(7).fill('<tr><td></td><td></td><td></td><td></td></tr>').join('')}
-      </tbody>
-    </table>
-
-    <div class="pf">
-      <div class="pf-s">HB · A5 · RCP-REG-01 · ${s.vin || '—'} · ${makeLabel}</div>
-      <div class="stamp-z">COMPLIANCE</div>
-      <div class="pf-p">PG ${String(pgNum).padStart(2,'0')}</div>
-    </div>
-  `;
-}
-
-// ══════════════════════════════════════════
-// PAGE NAVIGATION
-// ══════════════════════════════════════════
-function buildTabs(includeReceipts) {
-  const receiptTabs = includeReceipts
-    ? ['Invoices', 'Invoices', 'Invoices', 'Invoices', 'Rego / Comp.']
-    : [];
-
-  const names = [
-    'Cover',
-    'Info',
-    'Build Sheet', 'Mod Manifest', 'Ancillary', 'Notes',
-    ...Array.from({length:SVC_PAGES}, (_,i) => `Svc ${String(i+1).padStart(2,'0')}`),
-    ...Array.from({length:MOD_LOG_PAGES}, (_,i) => `Mod Log ${i+1}`),
-    ...receiptTabs
-  ];
-
-  const tabs = document.getElementById('page-tabs');
-  tabs.innerHTML = names.map((n, i) =>
-    `<div class="ptab" id="tab-${i}" onclick="showPage(${i})">${n}</div>`
-  ).join('');
-}
-
-function showPage(idx) {
-  const total = state.totalPages || (1 + GAP_PAGES.length + SVC_PAGES);
-  idx = Math.max(0, Math.min(idx, total - 1));
-  state.currentPage = idx;
-
-  document.querySelectorAll('.a5').forEach(p => p.classList.remove('show'));
-  const pg = document.getElementById(`page-${idx}`);
-  if (pg) { pg.classList.add('show'); }
-
-  // Reapply zoom scale (needed when page first becomes visible)
-  applyA5Scale();
-
-  // If this is the cover page (idx=0), redraw the canvas now it's visible
-  if (idx === 0) {
-    requestAnimationFrame(() => drawLiveCoverCanvas());
-  }
-
-  document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
-  const tab = document.getElementById(`tab-${idx}`);
-  if (tab) { tab.classList.add('active'); tab.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'}); }
-
-  document.getElementById('pnav-info').textContent = `${idx+1} / ${total}`;
-}
-
-function prevPage() { showPage(state.currentPage - 1); }
-function nextPage() { showPage(state.currentPage + 1); }
-
-// Print
-function downloadPDF() {
-  const btn = document.getElementById('print-btn');
-  btn.innerHTML = '↓ Preparing…';
-  btn.disabled = true;
-
-  // Show all pages, remove zoom
-  document.querySelectorAll('.a5').forEach(p => {
-    p.classList.add('show');
-    p.style.zoom = '';
-  });
-
-  // Repaint then print
-  setTimeout(() => {
-    window.print();
-    // Restore after print dialog closes
-    setTimeout(() => {
-      document.querySelectorAll('.a5').forEach((p, i) => {
-        if (i !== state.currentPage) p.classList.remove('show');
-      });
-      applyA5Scale();
-      btn.innerHTML = '↓ PDF';
-      btn.disabled = false;
-    }, 2000);
-  }, 200);
-}
-
-function executePrint() { downloadPDF(); }
-function printBook()    { downloadPDF(); }
-
-// ══════════════════════════════════════════
-// MOBILE PANEL SWITCHING
-// ══════════════════════════════════════════
-function mobileShowPanel(panel) {
-  const sidebar  = document.getElementById('sidebar');
-  const preview  = document.getElementById('preview-pane');
-  const order    = document.getElementById('order-pane');
-  const tabCfg   = document.getElementById('mob-tab-configure');
-  const tabPrev  = document.getElementById('mob-tab-preview');
-  const tabOrd   = document.getElementById('mob-tab-order');
-
-  // Remove all active states
-  [tabCfg, tabPrev, tabOrd].forEach(t => t && t.classList.remove('active'));
-  sidebar.classList.remove('slide-out');
-  preview.classList.remove('slide-in');
-  order.classList.remove('slide-in');
-
-  if (panel === 'configure') {
-    tabCfg && tabCfg.classList.add('active');
-  } else if (panel === 'preview') {
-    sidebar.classList.add('slide-out');
-    preview.classList.add('slide-in');
-    preview.scrollTop = 0;
-    tabPrev && tabPrev.classList.add('active');
-  } else if (panel === 'order') {
-    sidebar.classList.add('slide-out');
-    order.classList.add('slide-in');
-    order.scrollTop = 0;
-    tabOrd && tabOrd.classList.add('active');
-  }
-}
-
-// Called after preview generated
-function switchToPreviewPanel() {
-  // Show order CTA at bottom of preview pane
-  const cta = document.getElementById('preview-order-cta');
-  if (cta) cta.style.display = '';
-
-  if (window.innerWidth < 768) {
-    mobileShowPanel('preview');
-  }
-  // Desktop — do NOT auto-open order pane, let user click Order when ready
-  // This prevents layout thrash squishing the preview before scale runs
-
-  // Give DOM time to fully settle before scaling
-  setTimeout(() => applyA5Scale(), 80);
-}
-
-function applyA5Scale() {
-  const pane = document.getElementById('preview-pane');
-  if (!pane) return;
-  // Available width minus padding
-  const availW = pane.offsetWidth - 24;
-  // A5 at 96dpi: 148mm = 559px
-  const a5NaturalPx = 148 * (96 / 25.4);
-  const zoom = Math.min(1, availW / a5NaturalPx);
-  // Apply zoom to all .a5 pages — zoom collapses/expands height naturally
-  document.querySelectorAll('.a5').forEach(el => {
-    el.style.zoom = zoom;
-  });
-}
-
-// Legacy stub so nothing breaks if called elsewhere
-function toggleSidebar() { mobileShowPanel('configure'); }
-
-function goToOrder() {
-  // Only navigate if preview has been generated
-  if (!document.getElementById('book-wrap').classList.contains('visible')) return;
-  if (window.innerWidth < 768) {
-    mobileShowPanel('order');
-  } else {
-    const op = document.getElementById('order-pane');
-    op.classList.add('desktop-show');
-    op.scrollTop = 0;
-  }
-}
-
-function closeOrderPane() {
-  if (window.innerWidth < 768) {
-    mobileShowPanel('preview');
-  } else {
-    document.getElementById('order-pane').classList.remove('desktop-show');
-  }
-}
-
-// ══════════════════════════════════════════
-// COVER PAGE DESIGNS
-// ══════════════════════════════════════════
-// ══════════════════════════════════════════
-// COVER PAGE SYSTEM — POSTER STYLE
-// Based on reference art: vintage JDM poster, editorial car photo layout,
-// topo-map overland, dark streetwear/zine style
-// ══════════════════════════════════════════
-
-const COVER_DESIGNS = [
-  { id: 'editorial', label: 'Editorial',   draw: drawCoverEditorial, personas: ['jdm_turbo','jdm_na','jdm','euro','au_v8','rotary'] },
-  { id: 'vintage',   label: 'Vintage JDM', draw: drawCoverVintage,   personas: ['jdm_turbo','jdm_na','jdm','rotary'] },
-  { id: 'zine',      label: 'Zine / Dark', draw: drawCoverZine,      personas: ['jdm_turbo','jdm_na','jdm','au_v8','rotary'] },
-  { id: 'overland',  label: 'Overland',    draw: drawCoverOverland,  personas: ['diesel_4wd','petrol_4wd','fourwd'] },
-  { id: 'minimal',   label: 'Minimal',     draw: drawCoverMinimal,   personas: null },
-];
-
-let coverState = { design: 'editorial' };
-
-// ── SHARED HELPERS ────────────────────────
-
-function cvFont(size, weight, family) {
-  // Canvas font string helper
-  const f = family || "'Barlow Condensed', 'Arial Narrow', sans-serif";
-  return `${weight || 'normal'} ${size}px ${f}`;
-}
-
-function cvFill(ctx, text, x, y, maxW) {
-  if (maxW) ctx.fillText(text, x, y, maxW);
-  else ctx.fillText(text, x, y);
-}
-
-function cvNoise(ctx, w, h, alpha) {
-  // Draw noise at 1/4 resolution on offscreen canvas then scale up — much faster
-  const FACTOR = 4;
-  const sw = Math.ceil(w / FACTOR);
-  const sh = Math.ceil(h / FACTOR);
-  const off = document.createElement('canvas');
-  off.width = sw; off.height = sh;
-  const octx = off.getContext('2d');
-  const imgData = octx.createImageData(sw, sh);
-  const d = imgData.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const v = (Math.random() * 255) | 0;
-    d[i] = d[i+1] = d[i+2] = v;
-    d[i+3] = (alpha * 255) | 0;
-  }
-  octx.putImageData(imgData, 0, 0);
-  // Scale up with pixelation — gives a coarser grain which looks fine at print
-  ctx.save();
-  ctx.globalAlpha = 1;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(off, 0, 0, w, h);
-  ctx.restore();
-}
-
-// cvPhotoLayer — three-pass system:
-//   'bg'     — draw photo full-cover as page background (only when photoLayerBehind=true and photo exists)
-//   'zone'   — draw photo in its natural zone (behind mode: skip since already drawn as bg; front mode: draw here)
-
-
-
-
-// All draw functions work in display coordinates (559×794).
-// This wrapper scales up a 3× canvas automatically.
-function withCoverScale(canvas, drawFn) {
-  const ctx = canvas.getContext('2d');
-  const displayW = Math.round(148 * 3.78);
-  const displayH = Math.round(210 * 3.78);
-  const scaleX = canvas.width  / displayW;
-  const scaleY = canvas.height / displayH;
-  ctx.save();
-  ctx.scale(scaleX, scaleY);
-  drawFn(ctx, displayW, displayH);
-  ctx.restore();
+function svgText(txt, x, y, opts={}) {
+  const {fill='#fff',size=40,weight='400',family='Barlow Condensed',anchor='start',opacity=1,maxWidth=null} = opts;
+  const fam = family === 'mono' ? 'Share Tech Mono, monospace'
+            : family === 'jakarta' ? 'Plus Jakarta Sans, sans-serif'
+            : 'Barlow Condensed, sans-serif';
+  const clip = maxWidth ? `textLength="${maxWidth}" lengthAdjust="spacingAndGlyphs"` : '';
+  return `<text x="${x}" y="${y}" fill="${fill}" font-size="${size}" font-weight="${weight}" font-family="${fam}" text-anchor="${anchor}" opacity="${opacity}" ${clip}>${txt}</text>`;
 }
 
 // ── DESIGN 1: EDITORIAL ───────────────────
-// Ref: Images 2 & 3 — cream/muted bg, giant model name at top,
-// car photo front-on large and cropped, body copy, kanji accent
-function drawCoverEditorial(canvas, info) {
-  withCoverScale(canvas, (ctx, W, H) => {
+function svgCoverEditorial(info) {
+  const W = VW, H = VH;
   const make  = (info.make  || 'HERITAGE').toUpperCase();
-  const model = (info.model || '').toUpperCase().split('(')[0].trim() || 'YOUR CAR';
-
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#e8e0d0'; ctx.fillRect(0, 0, W, H);
-  cvNoise(ctx, W, H, 0.03);
-
-  // Top green block
-  ctx.fillStyle = '#1e3428'; ctx.fillRect(0, 0, W, H * 0.62);
-
-  // Bottom cream panel
-  const botY = H * 0.62;
-  ctx.fillStyle = '#e8e0d0'; ctx.fillRect(0, botY, W, H - botY);
-
-  // Model name — huge, over top block
-  ctx.fillStyle = '#c8bfa8';
-  ctx.font = cvFont(W * 0.28, '900');
-  ctx.textAlign = 'left'; ctx.letterSpacing = '-1px';
+  const model = (info.model || 'YOUR CAR').toUpperCase().split('(')[0].trim();
   const words = model.split(' ');
-  if (words.length >= 2) {
-    ctx.fillText(words[0], W * 0.04, H * 0.20);
-    ctx.font = cvFont(W * 0.24, '900');
-    ctx.fillText(words.slice(1).join(' '), W * 0.04, H * 0.36);
-  } else {
-    ctx.fillText(model, W * 0.04, H * 0.26, W * 0.95);
-  }
+  const botY  = H * 0.62;
 
-  // Make label top-left
-  ctx.fillStyle = '#8aaa88'; ctx.font = cvFont(W * 0.055, '600');
-  ctx.letterSpacing = '3px';
-  ctx.fillText(make, W * 0.04, H * 0.07);
+  const modelText = words.length >= 2
+    ? `${svgText(words[0], W*0.04, H*0.20, {size:W*0.28,weight:'900',fill:'#c8bfa8'})}
+       ${svgText(words.slice(1).join(' '), W*0.04, H*0.36, {size:W*0.24,weight:'900',fill:'#c8bfa8'})}`
+    : svgText(model, W*0.04, H*0.26, {size:W*0.28,weight:'900',fill:'#c8bfa8',maxWidth:W*0.92});
 
-  // Year circle top-right
-  if (info.year) {
-    ctx.strokeStyle = '#8aaa88'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(W*0.88, H*0.065, W*0.072, 0, Math.PI*2); ctx.stroke();
-    ctx.fillStyle = '#8aaa88';
-    ctx.font = cvFont(W * 0.06, '700', "'Share Tech Mono', monospace");
-    ctx.textAlign = 'center';
-    ctx.fillText(info.year, W * 0.88, H * 0.078);
-    ctx.textAlign = 'left';
-  }
+  const yearCircle = info.year ? `
+    <circle cx="${W*0.88}" cy="${H*0.065}" r="${W*0.072}" fill="none" stroke="#8aaa88" stroke-width="1"/>
+    ${svgText(info.year, W*0.88, H*0.078, {size:W*0.06,weight:'700',fill:'#8aaa88',family:'mono',anchor:'middle'})}` : '';
 
-  // Kanji accent — JDM only
-  if (['jdm_turbo','jdm_na','jdm','rotary'].includes(info.persona)) {
-    ctx.fillStyle = 'rgba(138,170,136,0.35)';
-    ctx.font = cvFont(W * 0.085, '400', 'serif'); ctx.textAlign = 'right';
-    ['整','備','記','録'].forEach((k, i) => ctx.fillText(k, W*0.96, H*0.12 + i*W*0.1));
-    ctx.textAlign = 'left';
-  }
+  const kanji = ['jdm_turbo','jdm_na','jdm','rotary'].includes(info.persona) ? `
+    <text fill="rgba(138,170,136,0.35)" font-size="${W*0.085}" font-family="serif" text-anchor="end">
+      <tspan x="${W*0.96}" y="${H*0.12}">整</tspan>
+      <tspan x="${W*0.96}" dy="${W*0.1}">備</tspan>
+      <tspan x="${W*0.96}" dy="${W*0.1}">記</tspan>
+      <tspan x="${W*0.96}" dy="${W*0.1}">録</tspan>
+    </text>` : '';
 
-  // Gold rule
-  ctx.fillStyle = '#b8913a'; ctx.fillRect(W*0.04, botY + H*0.018, W*0.92, 0.8);
+  const owner = info.owner ? svgText(info.owner.toUpperCase(), W*0.96, H*0.975, {size:W*0.065,weight:'700',fill:'#b8913a',anchor:'end'}) : '';
 
-  // Make + model bottom
-  ctx.fillStyle = '#1e3428'; ctx.font = cvFont(W * 0.14, '900');
-  ctx.fillText(`${make} ${model}`, W*0.04, botY + H*0.08, W*0.92);
-
-  // Engine / year
-  ctx.fillStyle = '#4a4030';
-  ctx.font = cvFont(W * 0.06, '600', "'Share Tech Mono', monospace");
-  ctx.fillText([info.engine, info.year].filter(Boolean).join('  ·  '), W*0.04, botY + H*0.115);
-
-  // Subtitle
-  ctx.font = cvFont(W * 0.048, '400');
-  wrapText(ctx, `${info.engine||'—'}  ·  ${info.year||'—'}  ·  Maintenance & service record`, W*0.04, botY+H*0.155, W*0.92, W*0.058);
-
-  // Owner
-  if (info.owner) {
-    ctx.fillStyle = '#b8913a'; ctx.font = cvFont(W * 0.065, '700');
-    ctx.textAlign = 'right';
-    ctx.fillText(info.owner.toUpperCase(), W*0.96, H*0.975);
-    ctx.textAlign = 'left';
-  }
-  ctx.fillStyle = '#888070'; ctx.font = cvFont(W * 0.045, '400', "'Share Tech Mono', monospace");
-  ctx.fillText('HERITAGE BOOKS', W*0.04, H*0.975);
-  });
+  const inner = `
+    <rect width="${W}" height="${H}" fill="#e8e0d0"/>
+    <rect width="${W}" height="${H*0.62}" fill="#1e3428"/>
+    ${svgText(make, W*0.04, H*0.07, {size:W*0.055,weight:'600',fill:'#8aaa88'})}
+    ${modelText}
+    ${yearCircle}
+    ${kanji}
+    <rect x="${W*0.04}" y="${botY+H*0.018}" width="${W*0.92}" height="0.8" fill="#b8913a"/>
+    ${svgText(make+' '+model, W*0.04, botY+H*0.08, {size:W*0.14,weight:'900',fill:'#1e3428',maxWidth:W*0.92})}
+    ${svgText([info.engine,info.year].filter(Boolean).join('  ·  '), W*0.04, botY+H*0.115, {size:W*0.06,weight:'600',fill:'#4a4030',family:'mono'})}
+    ${svgText('Maintenance & Service Record', W*0.04, botY+H*0.155, {size:W*0.048,weight:'400',fill:'#4a4030',family:'mono'})}
+    ${owner}
+    ${svgText('HERITAGE BOOKS', W*0.04, H*0.975, {size:W*0.04,weight:'400',fill:'#888070',family:'mono'})}
+  `;
+  return svgWrap(inner, info);
 }
 
 // ── DESIGN 2: VINTAGE JDM ─────────────────
-// Ref: Image 1 — slate blue bg, two cars stacked, big name through middle,
-// "S-SERIES" style subhead, italic body copy
-function drawCoverVintage(canvas, info) {
-  withCoverScale(canvas, (ctx, W, H) => {
+function svgCoverVintage(info) {
+  const W = VW, H = VH;
   const make  = (info.make  || 'MAKE').toUpperCase();
   const model = (info.model || 'MODEL').toUpperCase().split('(')[0].trim();
   const year  = info.year || '';
+  const modelSize = model.length > 6 ? W*0.22 : W*0.28;
 
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#3d4f6a'; ctx.fillRect(0, 0, W, H);
-  cvNoise(ctx, W, H, 0.04);
+  const owner = info.owner ? svgText(info.owner.toUpperCase(), W*0.96, H*0.975, {size:W*0.065,weight:'700',fill:'#b8913a',anchor:'end'}) : '';
 
-  // Vignette
-  const vig = ctx.createRadialGradient(W/2, H/2, H*0.2, W/2, H/2, H*0.8);
-  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.45)');
-  ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
-
-  // Photo boxes (tinted placeholders — design element)
-  const box1 = { x:W*0.35, y:H*0.08, w:W*0.58, h:H*0.22 };
-  const box2 = { x:W*0.04, y:H*0.25, w:W*0.76, h:H*0.28 };
-  [box1, box2].forEach((b, i) => {
-    ctx.fillStyle = i === 0 ? 'rgba(50,70,100,0.5)' : 'rgba(40,60,90,0.4)';
-    ctx.fillRect(b.x, b.y, b.w, b.h);
-    ctx.strokeStyle = 'rgba(200,216,232,0.25)'; ctx.lineWidth = 0.8;
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
-  });
-
-  // Make
-  ctx.fillStyle = '#c8d8e8'; ctx.font = cvFont(W * 0.07, '700');
-  ctx.textAlign = 'center'; ctx.letterSpacing = '4px';
-  ctx.fillText(make, W/2, H*0.10);
-
-  // Model huge
-  ctx.fillStyle = '#ffffff';
-  ctx.font = cvFont(model.length > 6 ? W*0.22 : W*0.28, '900');
-  ctx.letterSpacing = '-2px';
-  ctx.fillText(model, W/2, H*0.265, W*0.95);
-
-  // Divider rule
-  ctx.fillStyle = '#c8d8e8'; ctx.fillRect(W*0.04, H*0.555, W*0.92, 0.8);
-
-  // Edition tag
-  ctx.font = `italic ${cvFont(W*0.125, '800')}`; ctx.textAlign = 'right';
-  ctx.letterSpacing = '-1px';
-  ctx.fillText(year ? year + ' EDITION' : 'SERIES', W*0.96, H*0.635);
-  ctx.textAlign = 'left';
-
-  // Body copy
-  ctx.fillStyle = 'rgba(200,216,232,0.75)';
-  ctx.font = `italic ${cvFont(W*0.048, '400')}`; ctx.letterSpacing = '0px';
-  wrapText(ctx, `${make} ${model} — ${info.engine||'engine'} · ${year}. Specs & service record within.`, W*0.04, H*0.685, W*0.6, W*0.058);
-
-  // Spec tags right
-  ctx.fillStyle = '#c8d8e8'; ctx.font = cvFont(W*0.055, '700', "'Share Tech Mono', monospace");
-  ctx.textAlign = 'right';
-  [info.engine, 'LOGBOOK'].filter(Boolean).forEach((t, i) => ctx.fillText(t, W*0.96, H*0.70 + i*H*0.055));
-  ctx.textAlign = 'left';
-
-  if (info.owner) {
-    ctx.fillStyle = '#b8913a'; ctx.font = cvFont(W*0.065, '700');
-    ctx.textAlign = 'right';
-    ctx.fillText(info.owner.toUpperCase(), W*0.96, H*0.975);
-    ctx.textAlign = 'left';
-  }
-  ctx.fillStyle = 'rgba(200,216,232,0.35)';
-  ctx.font = cvFont(W*0.042, '400', "'Share Tech Mono', monospace");
-  ctx.fillText('HERITAGE BOOKS', W*0.04, H*0.975);
-  });
+  const inner = `
+    <defs>
+      <radialGradient id="vig" cx="50%" cy="50%" r="80%">
+        <stop offset="20%" stop-color="rgba(0,0,0,0)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0.45)"/>
+      </radialGradient>
+    </defs>
+    <rect width="${W}" height="${H}" fill="#3d4f6a"/>
+    <rect width="${W}" height="${H}" fill="url(#vig)"/>
+    <rect x="${W*0.35}" y="${H*0.08}" width="${W*0.58}" height="${H*0.22}" fill="rgba(50,70,100,0.5)" stroke="rgba(200,216,232,0.25)" stroke-width="0.8"/>
+    <rect x="${W*0.04}" y="${H*0.25}" width="${W*0.76}" height="${H*0.28}" fill="rgba(40,60,90,0.4)" stroke="rgba(200,216,232,0.25)" stroke-width="0.8"/>
+    ${svgText(make, W/2, H*0.10, {size:W*0.07,weight:'700',fill:'#c8d8e8',anchor:'middle'})}
+    ${svgText(model, W/2, H*0.265, {size:modelSize,weight:'900',fill:'#ffffff',anchor:'middle',maxWidth:W*0.95})}
+    <rect x="${W*0.04}" y="${H*0.555}" width="${W*0.92}" height="0.8" fill="#c8d8e8"/>
+    <text x="${W*0.96}" y="${H*0.635}" fill="#ffffff" font-size="${W*0.125}" font-weight="800" font-family="Barlow Condensed, sans-serif" font-style="italic" text-anchor="end">${year ? year+' EDITION' : 'SERIES'}</text>
+    ${svgText([info.engine,'LOGBOOK'].filter(Boolean)[0]||'', W*0.96, H*0.70, {size:W*0.055,weight:'700',fill:'#c8d8e8',family:'mono',anchor:'end'})}
+    ${svgText('LOGBOOK', W*0.96, H*0.755, {size:W*0.055,weight:'700',fill:'#c8d8e8',family:'mono',anchor:'end'})}
+    ${owner}
+    ${svgText('HERITAGE BOOKS', W*0.04, H*0.975, {size:W*0.042,weight:'400',fill:'rgba(200,216,232,0.35)',family:'mono'})}
+  `;
+  return svgWrap(inner, info);
 }
 
 // ── DESIGN 3: ZINE / DARK ─────────────────
-// Ref: Image 6 — black bg, neon green accents, photo insets,
-// bold grunge typography, Japanese characters, distressed texture
-function drawCoverZine(canvas, info) {
-  withCoverScale(canvas, (ctx, W, H) => {
+function svgCoverZine(info) {
+  const W = VW, H = VH;
   const make  = (info.make  || 'MAKE').toUpperCase();
   const model = (info.model || 'MODEL').toUpperCase().split('(')[0].trim();
   const photoY = H*0.25, photoH = H*0.33;
-
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#080a06'; ctx.fillRect(0, 0, W, H);
-  cvNoise(ctx, W, H, 0.05);
-
-  // Scan lines top
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  for (let y = 0; y < H*0.2; y += 2) ctx.fillRect(0, y, W, 0.5);
-
-  // Main photo box — tinted placeholder
-  ctx.strokeStyle = '#7adf5a'; ctx.lineWidth = 1.2;
-  ctx.strokeRect(W*0.04, photoY, W*0.92, photoH);
-  ctx.fillStyle = '#0f150a'; ctx.fillRect(W*0.04+1, photoY+1, W*0.92-2, photoH-2);
-  // ghost text in box
-  ctx.fillStyle = 'rgba(122,223,90,0.08)';
-  ctx.font = cvFont(photoH*0.12, '900'); ctx.textAlign = 'center';
-  ctx.fillText(model, W/2, photoY + photoH*0.55, W*0.88);
-  ctx.textAlign = 'left';
-
-  // Inset boxes
   const insetY = photoY + photoH + H*0.015;
   const insetH = H*0.11, insetW = W*0.42;
-  [W*0.04, W*0.54].forEach((ix, i) => {
-    ctx.strokeStyle = '#7adf5a'; ctx.lineWidth = 0.8;
-    ctx.strokeRect(ix, insetY, insetW, insetH);
-    ctx.fillStyle = '#0f150a'; ctx.fillRect(ix+0.5, insetY+0.5, insetW-1, insetH-1);
-    ctx.fillStyle = 'rgba(122,223,90,0.6)';
-    ctx.font = cvFont(insetH*0.22, '700', "'Share Tech Mono', monospace");
-    ctx.textAlign = 'center';
-    ctx.fillText(i===0 ? info.engine||'—' : info.year||'—', ix+insetW/2, insetY+insetH*0.62);
-    ctx.textAlign = 'left';
-  });
 
-  // Ghost kanji — JDM only
-  if (['jdm_turbo','jdm_na','jdm','rotary'].includes(info.persona)) {
-    ctx.fillStyle = 'rgba(122,223,90,0.12)';
-    ctx.font = cvFont(W*0.1, '400', 'serif'); ctx.textAlign = 'right';
-    ['整','備','記','録'].forEach((k,i) => ctx.fillText(k, W*0.97, insetY+H*0.015+i*W*0.12));
-    ctx.textAlign = 'left';
+  // Scan lines
+  let scanLines = '';
+  for (let y = 0; y < H*0.2; y += 2) {
+    scanLines += `<rect x="0" y="${y}" width="${W}" height="0.5" fill="rgba(0,0,0,0.3)"/>`;
   }
 
-  // Make — huge neon top
-  ctx.fillStyle = '#7adf5a'; ctx.font = cvFont(W*0.28, '900');
-  ctx.letterSpacing = '-2px'; ctx.textAlign = 'center';
-  ctx.fillText(make, W/2, H*0.175, W*0.98);
+  const kanji = ['jdm_turbo','jdm_na','jdm','rotary'].includes(info.persona) ? `
+    <text fill="rgba(122,223,90,0.12)" font-size="${W*0.1}" font-family="serif" text-anchor="end">
+      <tspan x="${W*0.97}" y="${insetY+H*0.015}">整</tspan>
+      <tspan x="${W*0.97}" dy="${W*0.12}">備</tspan>
+      <tspan x="${W*0.97}" dy="${W*0.12}">記</tspan>
+      <tspan x="${W*0.97}" dy="${W*0.12}">録</tspan>
+    </text>` : '';
 
-  // Subtitle
-  ctx.font = cvFont(W*0.065, '700', "'Share Tech Mono', monospace");
-  ctx.textAlign = 'left'; ctx.letterSpacing = '1px';
-  ctx.fillText(`○ ${info.engine||model} · × ✦ ×`, W*0.04, H*0.23, W*0.92);
+  const owner = info.owner ? svgText(info.owner.toUpperCase(), W*0.96, H*0.975, {size:W*0.06,weight:'700',fill:'#b8913a',anchor:'end'}) : '';
 
-  // Model bottom
-  ctx.font = cvFont(W*0.17, '900'); ctx.letterSpacing = '-1px';
-  ctx.fillText(model, W*0.04, insetY+insetH+H*0.07, W*0.92);
-
-  // Spec right
-  ctx.fillStyle = 'rgba(122,223,90,0.5)';
-  ctx.font = cvFont(W*0.042, '400', "'Share Tech Mono', monospace");
-  ctx.textAlign = 'right'; ctx.letterSpacing = '0px';
-  [info.engine, info.year, 'SERVICE LOG'].filter(Boolean).forEach((t,i) =>
-    ctx.fillText(t, W*0.96, insetY+insetH+H*0.08+i*H*0.04));
-  ctx.textAlign = 'left';
-
-  if (info.owner) {
-    ctx.fillStyle = '#b8913a'; ctx.font = cvFont(W*0.06, '700');
-    ctx.textAlign = 'right';
-    ctx.fillText(info.owner.toUpperCase(), W*0.96, H*0.975);
-    ctx.textAlign = 'left';
-  }
-  ctx.fillStyle = 'rgba(122,223,90,0.25)';
-  ctx.font = cvFont(W*0.04, '400', "'Share Tech Mono', monospace");
-  ctx.fillText('HERITAGE BOOKS', W*0.04, H*0.975);
-  });
+  const inner = `
+    <rect width="${W}" height="${H}" fill="#080a06"/>
+    ${scanLines}
+    <rect x="${W*0.04}" y="${photoY}" width="${W*0.92}" height="${photoH}" fill="#0f150a" stroke="#7adf5a" stroke-width="1.2"/>
+    ${svgText(model, W/2, photoY+photoH*0.55, {size:photoH*0.12,weight:'900',fill:'rgba(122,223,90,0.08)',anchor:'middle',maxWidth:W*0.88})}
+    <rect x="${W*0.04}" y="${insetY}" width="${insetW}" height="${insetH}" fill="#0f150a" stroke="#7adf5a" stroke-width="0.8"/>
+    <rect x="${W*0.54}" y="${insetY}" width="${insetW}" height="${insetH}" fill="#0f150a" stroke="#7adf5a" stroke-width="0.8"/>
+    ${svgText(info.engine||'—', W*0.04+insetW/2, insetY+insetH*0.62, {size:insetH*0.22,weight:'700',fill:'rgba(122,223,90,0.6)',family:'mono',anchor:'middle'})}
+    ${svgText(info.year||'—', W*0.54+insetW/2, insetY+insetH*0.62, {size:insetH*0.22,weight:'700',fill:'rgba(122,223,90,0.6)',family:'mono',anchor:'middle'})}
+    ${kanji}
+    ${svgText(make, W/2, H*0.175, {size:W*0.28,weight:'900',fill:'#7adf5a',anchor:'middle',maxWidth:W*0.98})}
+    ${svgText('○ '+(info.engine||model)+' · × ✦ ×', W*0.04, H*0.23, {size:W*0.065,weight:'700',fill:'#7adf5a',family:'mono',maxWidth:W*0.92})}
+    ${svgText(model, W*0.04, insetY+insetH+H*0.07, {size:W*0.17,weight:'900',fill:'#7adf5a',maxWidth:W*0.92})}
+    ${owner}
+    ${svgText('HERITAGE BOOKS', W*0.04, H*0.975, {size:W*0.04,weight:'400',fill:'rgba(122,223,90,0.25)',family:'mono'})}
+  `;
+  return svgWrap(inner, info);
 }
 
 // ── DESIGN 4: OVERLAND ────────────────────
-// Ref: Image 5 — tan/terracotta, topo map lines, side profile illustration box,
-// orange accent panels, bold make name, adventure aesthetic
-function drawCoverOverland(canvas, info) {
-  withCoverScale(canvas, (ctx, W, H) => {
+function svgCoverOverland(info) {
+  const W = VW, H = VH;
   const make  = (info.make  || 'HERITAGE').toUpperCase();
   const model = (info.model || '').split('(')[0].trim().toUpperCase();
   const profY = H*0.28, profH = H*0.32;
   const botY  = profY + profH + H*0.005;
 
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#d4c4a0'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#c84820'; ctx.fillRect(W*0.55, 0, W*0.45, H*0.65);
+  // Topo lines
+  const topoLeft = [
+    [[.08,.12],[.25,.06],[.42,.14],[.38,.28],[.22,.32],[.06,.24]],
+    [[.12,.16],[.26,.11],[.38,.18],[.34,.27],[.20,.28],[.10,.22]],
+    [[.30,.40],[.48,.34],[.52,.46],[.40,.52],[.28,.48]],
+    [[.05,.55],[.18,.50],[.30,.56],[.24,.64],[.08,.62]],
+    [[.10,.72],[.28,.68],[.35,.76],[.22,.82],[.06,.78]]
+  ].map(r => `<path d="${r.map(([x,y],i)=>(i?'L':'M')+x*W+' '+y*H).join(' ')}Z" fill="none" stroke="rgba(80,60,30,0.25)" stroke-width="0.6"/>`).join('');
 
-  // Topo lines left
-  ctx.strokeStyle = 'rgba(80,60,30,0.25)'; ctx.lineWidth = 0.6;
-  [[[.08,.12],[.25,.06],[.42,.14],[.38,.28],[.22,.32],[.06,.24]],
-   [[.12,.16],[.26,.11],[.38,.18],[.34,.27],[.20,.28],[.10,.22]],
-   [[.30,.40],[.48,.34],[.52,.46],[.40,.52],[.28,.48]],
-   [[.05,.55],[.18,.50],[.30,.56],[.24,.64],[.08,.62]],
-   [[.10,.72],[.28,.68],[.35,.76],[.22,.82],[.06,.78]]
-  ].forEach(r => { ctx.beginPath(); r.forEach(([x,y],i) => i?ctx.lineTo(x*W,y*H):ctx.moveTo(x*W,y*H)); ctx.closePath(); ctx.stroke(); });
-  ctx.strokeStyle = 'rgba(180,60,20,0.4)';
-  [[[.58,.08],[.72,.04],[.88,.10],[.92,.22],[.78,.28],[.60,.20]],
-   [[.62,.12],[.74,.08],[.86,.14],[.88,.24],[.76,.26],[.64,.18]],
-   [[.60,.35],[.75,.30],[.90,.38],[.88,.48],[.72,.50],[.58,.44]]
-  ].forEach(r => { ctx.beginPath(); r.forEach(([x,y],i) => i?ctx.lineTo(x*W,y*H):ctx.moveTo(x*W,y*H)); ctx.closePath(); ctx.stroke(); });
+  const topoRight = [
+    [[.58,.08],[.72,.04],[.88,.10],[.92,.22],[.78,.28],[.60,.20]],
+    [[.62,.12],[.74,.08],[.86,.14],[.88,.24],[.76,.26],[.64,.18]],
+    [[.60,.35],[.75,.30],[.90,.38],[.88,.48],[.72,.50],[.58,.44]]
+  ].map(r => `<path d="${r.map(([x,y],i)=>(i?'L':'M')+x*W+' '+y*H).join(' ')}Z" fill="none" stroke="rgba(180,60,20,0.4)" stroke-width="0.6"/>`).join('');
 
-  // Bottom tan panel
-  ctx.fillStyle = '#d4c4a0'; ctx.fillRect(0, botY, W, H-botY);
-
-  // Photo zone — subtle placeholder texture
-  ctx.fillStyle = 'rgba(100,80,40,0.12)'; ctx.fillRect(W*0.03, profY, W*0.94, profH);
-  ctx.strokeStyle = 'rgba(100,80,40,0.2)'; ctx.lineWidth = 0.6;
-  ctx.strokeRect(W*0.03, profY, W*0.94, profH);
-
-  // Orange badge top-left
-  ctx.fillStyle = '#c84820'; ctx.fillRect(W*0.04, H*0.04, W*0.12, W*0.12);
-  ctx.fillStyle = '#fff'; ctx.font = cvFont(W*0.07, '400');
-  ctx.textAlign = 'center';
-  ctx.fillText('⛰', W*0.10, H*0.04+W*0.092); ctx.textAlign = 'left';
-
-  // Make vertical on right panel
-  ctx.fillStyle = '#fff'; ctx.font = cvFont(W*0.055, '700'); ctx.letterSpacing = '2px';
-  ctx.save(); ctx.translate(W*0.935, H*0.38); ctx.rotate(-Math.PI/2);
-  ctx.fillText(make, -H*0.12, 0); ctx.restore();
-
-  // Chassis tag
   const tagY = profY + profH - H*0.06;
-  ctx.fillStyle = '#c84820'; ctx.fillRect(W*0.03, tagY, W*0.5, H*0.055);
-  ctx.fillStyle = '#fff'; ctx.font = cvFont(W*0.055, '700'); ctx.letterSpacing = '1px';
-  ctx.fillText(`${make} ${model}`, W*0.06, tagY+H*0.038, W*0.45);
+  const owner = info.owner ? svgText(info.owner.toUpperCase(), W*0.96, H*0.975, {size:W*0.065,weight:'700',fill:'#c84820',anchor:'end'}) : '';
 
-  // Rule + text bottom
-  ctx.fillStyle = '#c84820'; ctx.fillRect(W*0.04, botY+H*0.01, W*0.25, 2);
-  ctx.fillStyle = '#1a1208'; ctx.font = cvFont(W*0.20, '900'); ctx.letterSpacing = '-1px';
-  ctx.fillText(make, W*0.04, botY+H*0.09, W*0.92);
-  ctx.fillStyle = '#3a2c18';
-  ctx.font = cvFont(W*0.05, '400', "'Share Tech Mono', monospace"); ctx.letterSpacing = '0px';
-  wrapText(ctx, `${info.engine||'—'} · ${info.year||'—'} · Maintenance & service record`, W*0.04, botY+H*0.125, W*0.92, W*0.058);
-
-  if (info.owner) {
-    ctx.fillStyle = '#c84820'; ctx.font = cvFont(W*0.065, '700');
-    ctx.textAlign = 'right';
-    ctx.fillText(info.owner.toUpperCase(), W*0.96, H*0.975); ctx.textAlign = 'left';
-  }
-  ctx.fillStyle = 'rgba(80,60,30,0.5)';
-  ctx.font = cvFont(W*0.042, '400', "'Share Tech Mono', monospace");
-  ctx.fillText('HERITAGE BOOKS', W*0.04, H*0.975);
-  });
+  const inner = `
+    <rect width="${W}" height="${H}" fill="#d4c4a0"/>
+    <rect x="${W*0.55}" width="${W*0.45}" height="${H*0.65}" fill="#c84820"/>
+    ${topoLeft}
+    ${topoRight}
+    <rect width="${W}" y="${botY}" height="${H-botY}" fill="#d4c4a0"/>
+    <rect x="${W*0.03}" y="${profY}" width="${W*0.94}" height="${profH}" fill="rgba(100,80,40,0.12)" stroke="rgba(100,80,40,0.2)" stroke-width="0.6"/>
+    <rect x="${W*0.04}" y="${H*0.04}" width="${W*0.12}" height="${W*0.12}" fill="#c84820"/>
+    ${svgText('⛰', W*0.10, H*0.04+W*0.092, {size:W*0.07,weight:'400',fill:'#fff',anchor:'middle'})}
+    <text fill="#fff" font-size="${W*0.055}" font-weight="700" font-family="Barlow Condensed, sans-serif" letter-spacing="2" transform="translate(${W*0.935},${H*0.38}) rotate(-90)">${make}</text>
+    <rect x="${W*0.03}" y="${tagY}" width="${W*0.5}" height="${H*0.055}" fill="#c84820"/>
+    ${svgText(make+' '+model, W*0.06, tagY+H*0.038, {size:W*0.055,weight:'700',fill:'#fff',maxWidth:W*0.45})}
+    <rect x="${W*0.04}" y="${botY+H*0.01}" width="${W*0.25}" height="2" fill="#c84820"/>
+    ${svgText(make, W*0.04, botY+H*0.09, {size:W*0.20,weight:'900',fill:'#1a1208',maxWidth:W*0.92})}
+    ${svgText((info.engine||'—')+' · '+(info.year||'—')+' · Maintenance & service record', W*0.04, botY+H*0.125, {size:W*0.05,weight:'400',fill:'#3a2c18',family:'mono',maxWidth:W*0.92})}
+    ${owner}
+    ${svgText('HERITAGE BOOKS', W*0.04, H*0.975, {size:W*0.042,weight:'400',fill:'rgba(80,60,30,0.5)',family:'mono'})}
+  `;
+  return svgWrap(inner, info);
 }
 
 // ── DESIGN 5: MINIMAL ─────────────────────
-// Clean dark paper, engine code ghost text, single gold bar, crisp type
-function drawCoverMinimal(canvas, info) {
-  withCoverScale(canvas, (ctx, W, H) => {
+function svgCoverMinimal(info) {
+  const W = VW, H = VH;
   const code  = (info.engine || info.model || 'HB').split(' ')[0];
   const make  = (info.make   || 'HERITAGE').toUpperCase();
   const model = (info.model  || '').toUpperCase().split('(')[0].trim();
 
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#0e0d0b'; ctx.fillRect(0, 0, W, H);
-  cvNoise(ctx, W, H, 0.025);
-
   // Ruled lines
-  ctx.strokeStyle = 'rgba(184,145,58,0.05)'; ctx.lineWidth = 0.4;
-  for (let y = 18; y < H; y += 8) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
-
-  // Ghost engine code
-  ctx.fillStyle = 'rgba(184,145,58,0.05)'; ctx.font = cvFont(W*0.52, '900');
-  ctx.textAlign = 'center'; ctx.letterSpacing = '-3px';
-  ctx.fillText(code, W/2, H*0.62);
-
-  // Gold bar left
-  ctx.fillStyle = '#b8913a'; ctx.fillRect(W*0.06, H*0.16, 2, H*0.46);
-
-  // Make
-  ctx.textAlign = 'left'; ctx.fillStyle = '#e8e0d0';
-  ctx.font = cvFont(W*0.15, '900'); ctx.letterSpacing = '-1px';
-  ctx.fillText(make, W*0.10, H*0.27, W*0.85);
-
-  // Model
-  ctx.fillStyle = '#b8913a'; ctx.font = cvFont(W*0.085, '600'); ctx.letterSpacing = '0px';
-  ctx.fillText(model, W*0.10, H*0.37, W*0.85);
-
-  // Engine + year
-  ctx.fillStyle = '#555'; ctx.font = cvFont(W*0.058, '400', "'Share Tech Mono', monospace");
-  ctx.fillText(info.engine||'', W*0.10, H*0.435);
-  ctx.fillText(info.year  ||'', W*0.10, H*0.49);
-
-  // Gold rule
-  ctx.fillStyle = '#b8913a'; ctx.fillRect(W*0.10, H*0.52, W*0.80, 0.8);
-
-  // Subtitle below rule
-  ctx.fillStyle = 'rgba(184,145,58,0.45)';
-  ctx.font = cvFont(W*0.042, '400', "'Share Tech Mono', monospace");
-  ctx.fillText('MAINTENANCE & SERVICE RECORD', W*0.10, H*0.555);
-
-  if (info.owner) {
-    ctx.fillStyle = '#b8913a'; ctx.font = cvFont(W*0.065, '700');
-    ctx.textAlign = 'right';
-    ctx.fillText(info.owner.toUpperCase(), W*0.96, H*0.975);
-    ctx.textAlign = 'left';
+  let rules = '';
+  for (let y = 18; y < H; y += 8) {
+    rules += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="rgba(184,145,58,0.05)" stroke-width="0.4"/>`;
   }
-  ctx.fillStyle = 'rgba(184,145,58,0.35)';
-  ctx.font = cvFont(W*0.04, '400', "'Share Tech Mono', monospace");
-  ctx.fillText('HERITAGE BOOKS', W*0.06, H*0.975);
-  });
+
+  const owner = info.owner ? svgText(info.owner.toUpperCase(), W*0.96, H*0.975, {size:W*0.065,weight:'700',fill:'#b8913a',anchor:'end'}) : '';
+
+  const inner = `
+    <rect width="${W}" height="${H}" fill="#0e0d0b"/>
+    ${rules}
+    ${svgText(code, W/2, H*0.62, {size:W*0.52,weight:'900',fill:'rgba(184,145,58,0.05)',anchor:'middle'})}
+    <rect x="${W*0.06}" y="${H*0.16}" width="2" height="${H*0.46}" fill="#b8913a"/>
+    ${svgText(make, W*0.10, H*0.27, {size:W*0.15,weight:'900',fill:'#e8e0d0',maxWidth:W*0.85})}
+    ${svgText(model, W*0.10, H*0.37, {size:W*0.085,weight:'600',fill:'#b8913a',maxWidth:W*0.85})}
+    ${svgText(info.engine||'', W*0.10, H*0.435, {size:W*0.058,weight:'400',fill:'#555',family:'mono'})}
+    ${svgText(info.year||'', W*0.10, H*0.49, {size:W*0.058,weight:'400',fill:'#555',family:'mono'})}
+    <rect x="${W*0.10}" y="${H*0.52}" width="${W*0.80}" height="0.8" fill="#b8913a"/>
+    ${svgText('MAINTENANCE & SERVICE RECORD', W*0.10, H*0.555, {size:W*0.042,weight:'400',fill:'rgba(184,145,58,0.45)',family:'mono'})}
+    ${owner}
+    ${svgText('HERITAGE BOOKS', W*0.06, H*0.975, {size:W*0.04,weight:'400',fill:'rgba(184,145,58,0.35)',family:'mono'})}
+  `;
+  return svgWrap(inner, info);
 }
 
-// ── SHARED TEXT WRAP ─────────────────────
-function wrapText(ctx, text, x, y, maxW, lineH) {
-  const words = text.split(' ');
-  let line = '', lineY = y;
-  words.forEach(word => {
-    const test = line ? line + ' ' + word : word;
-    if (ctx.measureText(test).width > maxW && line) {
-      ctx.fillText(line, x, lineY);
-      line = word;
-      lineY += lineH;
-    } else {
-      line = test;
-    }
-  });
-  if (line) ctx.fillText(line, x, lineY);
-}
+const COVER_DESIGNS = [
+  { id: 'editorial', label: 'Editorial',   svg: svgCoverEditorial, personas: ['jdm_turbo','jdm_na','jdm','euro','au_v8','rotary'] },
+  { id: 'vintage',   label: 'Vintage JDM', svg: svgCoverVintage,   personas: ['jdm_turbo','jdm_na','jdm','rotary'] },
+  { id: 'zine',      label: 'Zine / Dark', svg: svgCoverZine,      personas: ['jdm_turbo','jdm_na','jdm','au_v8','rotary'] },
+  { id: 'overland',  label: 'Overland',    svg: svgCoverOverland,  personas: ['diesel_4wd','petrol_4wd','fourwd'] },
+  { id: 'minimal',   label: 'Minimal',     svg: svgCoverMinimal,   personas: null },
+];
+
+let coverState = { design: 'editorial' };
+
 
 // ── INIT & INTERACTION ───────────────────
 
@@ -6306,11 +5326,11 @@ function initCoverGrid() {
     wrap.dataset.id = d.id;
     wrap.onclick = () => selectCoverDesign(d.id);
 
-    const canvas = document.createElement('canvas');
-    canvas.className = 'cover-canvas';
-    canvas.width  = 148;
-    canvas.height = 210;
-    wrap.appendChild(canvas);
+    const svgWrapEl = document.createElement('div');
+    svgWrapEl.className = 'cover-canvas';
+    svgWrapEl.style.cssText = 'overflow:hidden;';
+    svgWrapEl.innerHTML = d.svg({ owner:'', make: DB[state.make]?.label || '', model: state.model || '', engine: state.engine || '', year: state.year || '', persona: state.persona || '' });
+    wrap.appendChild(svgWrapEl);
 
     const lbl = document.createElement('div');
     lbl.className = 'cover-label';
@@ -6318,7 +5338,6 @@ function initCoverGrid() {
     wrap.appendChild(lbl);
 
     grid.appendChild(wrap);
-    d.draw(canvas, { owner:'', make: DB[state.make]?.label || '', model: state.model || '', engine: state.engine || '', year: state.year || '', persona: state.persona || '' });
   });
 }
 
@@ -6326,6 +5345,10 @@ function selectCoverDesign(id) {
   coverState.design = id;
   document.querySelectorAll('.cover-option').forEach(el =>
     el.classList.toggle('selected', el.dataset.id === id));
+  // Re-render live cover if preview is showing
+  if (document.getElementById('book-wrap').classList.contains('visible')) {
+    drawLiveCoverCanvas();
+  }
 }
 
 
