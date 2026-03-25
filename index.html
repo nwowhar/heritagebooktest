@@ -1338,39 +1338,67 @@ body {
 ════════════════════════════════════════ -->
 <style id="print-styles">
 @media print {
-  /* Block all printing — customer sees this if they try Ctrl+P */
-  body * { display: none !important; }
-  body::after {
-    display: block !important;
-    content: 'This preview is watermarked and cannot be printed. Place your order at heritagebooks.com.au to receive your print-ready file.';
-    font-family: sans-serif;
-    font-size: 18px;
-    text-align: center;
-    padding: 60px 40px;
-    color: #333;
-  }
+  @page { size: A5 portrait; margin: 0; }
 }
 /* Internal print mode — activated only by printBook() with .print-mode class on body */
 body.print-mode * { display: revert !important; }
 @media print {
   @page { size: A5 portrait; margin: 0; }
 
-  /* Override dark theme variables for print */
-  body.print-mode {
-    --ink: #1a1814;
-    --rule: #bbb;
-    --gold: #8a6010;
-    --red: #8b1a1a;
-    --shell: white;
-    --shell2: white;
-    --shell3: #f5f5f5;
-    --border: #ccc;
-    --muted: #555;
-    background: white;
-    color: #1a1814;
+  body.print-mode::after { display: none !important; }
+
+  body.print-mode,
+  body.print-mode .preview-pane,
+  body.print-mode .a5 {
+    background: white !important;
+    color: #1a1814 !important;
   }
 
-  body.print-mode::after { display: none !important; }
+  /* Force all text dark */
+  body.print-mode .a5 * {
+    color: inherit !important;
+    border-color: #ccc !important;
+  }
+
+  /* Specific dark-on-light overrides */
+  body.print-mode .a5 .ph-brand,
+  body.print-mode .a5 .sh,
+  body.print-mode .a5 .ib-val,
+  body.print-mode .a5 .svc-field-label,
+  body.print-mode .a5 .chk-item,
+  body.print-mode .a5 .fluid-label,
+  body.print-mode .a5 .ib-label,
+  body.print-mode .a5 .pf-s,
+  body.print-mode .a5 .pf-p,
+  body.print-mode .a5 table,
+  body.print-mode .a5 th,
+  body.print-mode .a5 td { color: #1a1814 !important; }
+
+  body.print-mode .a5 .ph-brand em,
+  body.print-mode .a5 .tag-gld,
+  body.print-mode .a5 .ib-major-tag,
+  body.print-mode .a5 .stamp-z { color: #8a6010 !important; }
+
+  body.print-mode .a5 .tag-blk { color: #555 !important; }
+  body.print-mode .a5 .interval-banner.major { background: #fff5f5 !important; }
+  body.print-mode .a5 .interval-banner { background: #fafaf8 !important; border-color: #ccc !important; }
+  body.print-mode .a5 .pop { color: #1a1814 !important; font-weight: 600 !important; }
+
+  /* Table backgrounds */
+  body.print-mode .a5 table,
+  body.print-mode .a5 thead { background: #f5f4f0 !important; }
+  body.print-mode .a5 th { background: #ece9e0 !important; color: #1a1814 !important; }
+
+  /* Write lines and checkboxes */
+  body.print-mode .a5 .nline,
+  body.print-mode .a5 .svc-field-line,
+  body.print-mode .a5 .fluid-line,
+  body.print-mode .a5 .ib-write-line { border-bottom-color: #999 !important; }
+  body.print-mode .a5 .chk-sq,
+  body.print-mode .a5 .fluid-check-sq { border-color: #555 !important; }
+  body.print-mode .a5 .rule { border-color: #ccc !important; }
+
+  /* Hide all UI chrome */
   body.print-mode .app-header,
   body.print-mode .sidebar,
   body.print-mode .preview-topbar,
@@ -1379,24 +1407,23 @@ body.print-mode * { display: revert !important; }
   body.print-mode .pdf-modal,
   body.print-mode .mobile-tabs,
   body.print-mode .order-pane,
-  body.print-mode .pnav-btn { display: none !important; }
-  body.print-mode .preview-pane { max-height: none; overflow: visible; padding: 0; background: white; }
+  body.print-mode .pnav-btn,
+  body.print-mode .placeholder { display: none !important; }
+
+  body.print-mode .preview-pane { max-height: none !important; overflow: visible !important; padding: 0 !important; }
   body.print-mode .a5-wrap { display: flex !important; }
   body.print-mode .a5 {
     display: block !important;
-    box-shadow: none;
-    margin: 0;
+    box-shadow: none !important;
+    margin: 0 !important;
     zoom: 1 !important;
     width: 148mm !important;
     height: 210mm !important;
     page-break-after: always;
     break-after: page;
     overflow: hidden;
-    background: white;
-    color: #1a1814;
   }
   body.print-mode .a5::after { display: none !important; }
-  body.print-mode .placeholder { display: none; }
   body.print-mode #pdf-modal { display: none !important; }
 }
 </style>
