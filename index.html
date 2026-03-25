@@ -377,7 +377,7 @@ body {
   background: var(--shell3);
   border: 1px solid var(--border);
   color: #d8d0c0;
-  font-family: var(--mono);
+  font-family: var(--body);
   font-size: 12px;
   padding: 9px 12px;
   outline: none;
@@ -789,7 +789,8 @@ body {
 .nline { border-bottom: 0.5px solid var(--rule); height: 7.5mm; }
 
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -5682,35 +5683,21 @@ function nextPage() { showPage(state.currentPage + 1); }
 async function downloadPDF() {
   const btn = document.getElementById('print-btn');
   const origText = btn.innerHTML;
-  btn.innerHTML = '↓ Building…';
   btn.disabled = true;
 
   try {
-    // Make all pages visible and remove zoom for accurate capture
+    // Make all pages visible, remove zoom
     document.querySelectorAll('.a5').forEach(p => {
       p.classList.add('show');
       p.style.zoom = '';
     });
 
-    // Redraw cover canvas at full res before capture
+    // Snapshot the cover canvas to a data URL BEFORE cloning
+    // (cloneNode does not copy canvas pixel data)
     drawLiveCoverCanvas();
-    await new Promise(r => setTimeout(r, 150));
-
-    // Clone all pages into a clean off-screen container
-    const container = document.createElement('div');
-    container.style.cssText = 'position:absolute;left:-9999px;top:0;background:white;';
-
-    document.querySelectorAll('#pages-container .a5').forEach((page) => {
-      const wrapper = document.createElement('div');
-      wrapper.style.cssText = [
-        'width:148mm', 'height:210mm', 'overflow:hidden',
-        'page-break-after:always', 'break-after:page',
-        'position:relative', 'background:white'
-      ].join(';');
-      wrapper.appendChild(page.cloneNode(true));
-      container.appendChild(wrapper);
-    });
-    document.body.appendChild(container);
+    await new Promise(r => setTimeout(r, 120));
+    const liveCv = document.getElementById('cover-canvas-live');
+    const coverDataURL = liveCv ? liveCv.toDataURL('image/jpeg', 0.95) : null;
 
     const make  = DB[state.make]?.label || state.make || 'Heritage';
     const model = (state.model || 'Book').split('(')[0].trim();
@@ -5718,20 +5705,43 @@ async function downloadPDF() {
     const filename = ('Heritage-Books_' + make + '_' + model + (year ? '_' + year : '') + '.pdf')
       .replace(/[^a-zA-Z0-9_\-\.]/g, '-');
 
-    await html2pdf().set({
-      margin:      0,
-      filename:    filename,
-      image:       { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-      jsPDF:       { unit: 'mm', format: 'a5', orientation: 'portrait' },
-      pagebreak:   { mode: ['css', 'legacy'] }
-    }).from(container).save();
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' });
+    const pages = Array.from(document.querySelectorAll('#pages-container .a5'));
+    const W = 148, H = 210;
 
-    document.body.removeChild(container);
+    for (let idx = 0; idx < pages.length; idx++) {
+      btn.innerHTML = '↓ ' + (idx + 1) + ' / ' + pages.length;
+      if (idx > 0) pdf.addPage('a5', 'portrait');
+
+      const page = pages[idx];
+      const isCover = idx === 0;
+
+      if (isCover && coverDataURL) {
+        // Cover: use the pre-captured canvas image directly
+        pdf.addImage(coverDataURL, 'JPEG', 0, 0, W, H);
+      } else {
+        // Interior pages: render via html2canvas
+        const canvas = await html2canvas(page, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          width: page.offsetWidth,
+          height: page.offsetHeight,
+          windowWidth: page.offsetWidth,
+          windowHeight: page.offsetHeight,
+          logging: false
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        pdf.addImage(imgData, 'JPEG', 0, 0, W, H);
+      }
+    }
+
+    pdf.save(filename);
 
   } catch(e) {
     console.error('PDF error:', e);
-    alert('PDF generation failed — try again or use Ctrl+P and Save as PDF.');
+    alert('PDF generation failed: ' + e.message);
   } finally {
     document.querySelectorAll('.a5').forEach((p, i) => {
       if (i !== state.currentPage) p.classList.remove('show');
